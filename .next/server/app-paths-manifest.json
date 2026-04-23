@@ -1,0 +1,12 @@
+{
+  "/_not-found/page": "app/_not-found/page.js",
+  "/api/ingest/route": "app/api/ingest/route.js",
+  "/api/leads/[id]/notes/route": "app/api/leads/[id]/notes/route.js",
+  "/api/leads/[id]/route": "app/api/leads/[id]/route.js",
+  "/api/leads/route": "app/api/leads/route.js",
+  "/dashboard/page": "app/dashboard/page.js",
+  "/leads/[id]/page": "app/leads/[id]/page.js",
+  "/leads/page": "app/leads/page.js",
+  "/login/page": "app/login/page.js",
+  "/page": "app/page.js"
+}

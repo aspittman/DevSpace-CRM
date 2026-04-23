@@ -1,0 +1,12 @@
+{
+  "/_not-found/page": "/_not-found",
+  "/api/ingest/route": "/api/ingest",
+  "/api/leads/[id]/notes/route": "/api/leads/[id]/notes",
+  "/api/leads/[id]/route": "/api/leads/[id]",
+  "/api/leads/route": "/api/leads",
+  "/dashboard/page": "/dashboard",
+  "/leads/[id]/page": "/leads/[id]",
+  "/leads/page": "/leads",
+  "/login/page": "/login",
+  "/page": "/"
+}
