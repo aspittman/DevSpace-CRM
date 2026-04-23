@@ -1,6 +1,8 @@
 import { NextRequest } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
-import { json } from '@/lib/utils'
+import { supabaseAdmin } from '../../../lib/supabase'
+import { json } from '../../../lib/utils'
+
+// ...existing code...
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)

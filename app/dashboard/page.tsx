@@ -1,4 +1,4 @@
-import { supabaseAdmin } from '@/lib/supabase'
+import { supabaseAdmin } from '../../lib/supabase'
 
 export default async function DashboardPage() {
   const [{ count: leadCount }, { count: companyCount }, { count: botRunCount }] = await Promise.all([

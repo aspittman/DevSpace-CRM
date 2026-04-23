@@ -1,7 +1,9 @@
 import { NextRequest } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
-import { logActivity } from '@/lib/activity'
-import { json } from '@/lib/utils'
+import { supabaseAdmin } from '../../../../lib/supabase'
+import { logActivity } from '../../../../lib/activity'
+import { json } from '../../../../lib/utils'
+
+// ...existing code...
 
 export async function GET(_: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params

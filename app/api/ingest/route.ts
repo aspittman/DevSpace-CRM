@@ -1,9 +1,9 @@
 import { NextRequest } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
-import { logActivity } from '@/lib/activity'
-import { findExistingCompany, findExistingContact, findExistingLead } from '@/lib/dedupe'
-import { normalizeDomain, normalizeEmail, json } from '@/lib/utils'
-import { ingestLeadSchema } from '@/lib/validators'
+import { supabaseAdmin } from '../../../lib/supabase'
+import { logActivity } from '../../../lib/activity'
+import { findExistingCompany, findExistingContact, findExistingLead } from '../../../lib/dedupe'
+import { normalizeDomain, normalizeEmail, json } from '../../../lib/utils'
+import { ingestLeadSchema } from '../../../lib/validators'
 
 export async function POST(req: NextRequest) {
   try {
