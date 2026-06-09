@@ -1,17 +1,3 @@
-create type user_role as enum ('admin', 'customer');
-
-create table profiles (
-  id uuid primary key references auth.users(id) on delete cascade,
-  email text not null,
-  role user_role not null default 'customer',
-  organization_id uuid references organizations(id) on delete set null,
-  created_at timestamptz not null default now()
-);
-
-alter table leads add column if not exists organization_id uuid references organizations(id);
-alter table bot_runs add column if not exists organization_id uuid references organizations(id);
-alter table companies add column if not exists organization_id uuid references organizations(id);
-
 create or replace function is_admin()
 returns boolean
 language sql

@@ -7,6 +7,16 @@ create table organizations (
   updated_at timestamptz not null default now()
 );
 
+create type user_role as enum ('admin', 'customer');
+
+create table profiles (
+  id uuid primary key references auth.users(id) on delete cascade,
+  email text not null,
+  role user_role not null default 'customer',
+  organization_id uuid references organizations(id) on delete set null,
+  created_at timestamptz not null default now()
+);
+
 create table organization_services (
   id uuid primary key default gen_random_uuid(),
   organization_id uuid not null references organizations(id) on delete cascade,
@@ -21,14 +31,6 @@ create table organization_services (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   unique (organization_id, service_key, niche)
-);
-
-create table profiles (
-  id uuid primary key,
-  email text,
-  full_name text,
-  global_role text not null default 'customer',
-  created_at timestamptz not null default now()
 );
 
 create table organization_members (
