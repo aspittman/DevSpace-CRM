@@ -7,6 +7,22 @@ create table organizations (
   updated_at timestamptz not null default now()
 );
 
+create table organization_services (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references organizations(id) on delete cascade,
+  service_key text not null,
+  service_name text not null,
+  niche text,
+  is_enabled boolean not null default true,
+  email_enabled boolean not null default false,
+  approval_required boolean not null default true,
+  daily_limit integer not null default 25,
+  config_json jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (organization_id, service_key, niche)
+);
+
 create table profiles (
   id uuid primary key,
   email text,

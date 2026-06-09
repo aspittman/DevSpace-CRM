@@ -1,6 +1,9 @@
-import { supabaseAdmin } from '../../lib/supabase'
+import { supabaseAdmin } from '../../lib/supabase-admin'
+import { requireAdmin } from '../../lib/auth'
 
 export default async function AdminDashboardPage() {
+  await requireAdmin()
+
   const [{ count: leadCount }, { count: companyCount }, { count: botRunCount }] =
     await Promise.all([
       supabaseAdmin.from('leads').select('*', { count: 'exact', head: true }),

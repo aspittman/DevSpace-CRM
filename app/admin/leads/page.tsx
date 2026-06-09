@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { supabaseAdmin } from '../../../lib/supabase'
+import { supabaseAdmin } from '../../../lib/supabase-admin'
 
 export default async function LeadsPage() {
   const { data: leads } = await supabaseAdmin

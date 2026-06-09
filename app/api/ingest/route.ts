@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { supabaseAdmin } from '../../../lib/supabase'
+import { supabaseAdmin } from '../../../lib/supabase-admin'
 import { logActivity } from '../../../lib/activity'
 import { findExistingCompany, findExistingContact, findExistingLead } from '../../../lib/dedupe'
 import { normalizeDomain, normalizeEmail, json } from '../../../lib/utils'
@@ -25,6 +25,16 @@ export async function POST(req: NextRequest) {
     }
 
     const input = parsed.data
+
+    const organizationId = input.organization_id
+
+    if (!organizationId) {
+      return json(
+        { success: false, error: 'organization_id is required' },
+        { status: 400 },
+      )
+    }
+
     const normalizedDomain = normalizeDomain(input.company.domain || input.company.website)
     const normalizedEmail = normalizeEmail(input.contact?.email)
 
@@ -34,6 +44,7 @@ export async function POST(req: NextRequest) {
       const { data, error } = await supabaseAdmin
         .from('companies')
         .insert({
+          organization_id: organizationId,
           name: input.company.name,
           website: input.company.website ?? null,
           domain: normalizedDomain,
@@ -79,6 +90,7 @@ export async function POST(req: NextRequest) {
       const { data, error } = await supabaseAdmin
         .from('leads')
         .update({
+          organization_id: organizationId,
           contact_id: contact?.id ?? existingLead.contact_id,
           score: input.lead.score,
           summary: input.lead.summary ?? existingLead.summary,
@@ -109,6 +121,7 @@ export async function POST(req: NextRequest) {
     const { data: newLead, error: leadError } = await supabaseAdmin
       .from('leads')
       .insert({
+        organization_id: organizationId,
         company_id: company.id,
         contact_id: contact?.id ?? null,
         source_bot: input.source_bot,

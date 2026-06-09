@@ -1,10 +1,20 @@
-export default function PortalPage() {
+import { requireUser } from "../../lib/auth";
+import { createClient } from "../../lib/supabase";
+
+export default async function PortalPage() {
+  const profile = await requireUser();
+  const supabase = createClient();
+
+  const { data: leads } = await supabase
+    .from("leads")
+    .select("*")
+    .eq("organization_id", profile.organization_id)
+    .order("created_at", { ascending: false });
+
   return (
-    <div>
-      <h1 className="text-3xl font-bold">Bot Runs</h1>
-      <p className="mt-2 text-slate-600">
-        Monitor bot activity, run history, errors, and inserted lead counts.
-      </p>
-    </div>
-  )
+    <main>
+      <h1>Customer Portal</h1>
+      <pre>{JSON.stringify(leads, null, 2)}</pre>
+    </main>
+  );
 }

@@ -26,6 +26,7 @@ export const ingestLeadSchema = z.object({
     pain_points: z.array(z.string()).default([]),
   }),
   metadata: z.record(z.string(), z.unknown()).optional(),
+  organization_id: z.string().uuid(),
 })
 
 export type IngestLeadInput = z.infer<typeof ingestLeadSchema>
