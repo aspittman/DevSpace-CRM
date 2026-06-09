@@ -1,4 +1,4 @@
-import { supabaseAdmin } from './supabase'
+import { supabaseAdmin } from './supabase-admin'
 import { normalizeDomain, normalizeEmail } from './utils'
 import type { IngestLeadInput } from './validators'
 
