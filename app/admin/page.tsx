@@ -1,33 +1,52 @@
 import { supabaseAdmin } from '../../lib/supabase'
 
-export default async function DashboardPage() {
-  const [{ count: leadCount }, { count: companyCount }, { count: botRunCount }] = await Promise.all([
-    supabaseAdmin.from('leads').select('*', { count: 'exact', head: true }),
-    supabaseAdmin.from('companies').select('*', { count: 'exact', head: true }),
-    supabaseAdmin.from('bot_runs').select('*', { count: 'exact', head: true }),
-  ])
+export default async function AdminDashboardPage() {
+  const [{ count: leadCount }, { count: companyCount }, { count: botRunCount }] =
+    await Promise.all([
+      supabaseAdmin.from('leads').select('*', { count: 'exact', head: true }),
+      supabaseAdmin.from('companies').select('*', { count: 'exact', head: true }),
+      supabaseAdmin.from('bot_runs').select('*', { count: 'exact', head: true }),
+    ])
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Dashboard</h1>
-        <p className="text-slate-600 mt-1">Overview of your DevSpace lead pipeline.</p>
+    <div>
+      <div className="topbar">
+        <div>
+          <h1 className="page-title">DevSpace Admin</h1>
+          <p className="page-subtitle">
+            Monitor customers, bot activity, lead flow, and sales intelligence.
+          </p>
+        </div>
+
+        <a className="button" href="/admin/customers">
+          View Customers
+        </a>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <div className="rounded-2xl bg-white p-6 shadow-sm border">
-          <div className="text-sm text-slate-500">Total Leads</div>
-          <div className="text-3xl font-semibold mt-2">{leadCount ?? 0}</div>
+      <section className="card-grid">
+        <div className="card">
+          <div className="card-label">Total Leads</div>
+          <div className="card-value">{leadCount ?? 0}</div>
         </div>
-        <div className="rounded-2xl bg-white p-6 shadow-sm border">
-          <div className="text-sm text-slate-500">Companies</div>
-          <div className="text-3xl font-semibold mt-2">{companyCount ?? 0}</div>
+
+        <div className="card">
+          <div className="card-label">Companies</div>
+          <div className="card-value">{companyCount ?? 0}</div>
         </div>
-        <div className="rounded-2xl bg-white p-6 shadow-sm border">
-          <div className="text-sm text-slate-500">Bot Runs</div>
-          <div className="text-3xl font-semibold mt-2">{botRunCount ?? 0}</div>
+
+        <div className="card">
+          <div className="card-label">Bot Runs</div>
+          <div className="card-value">{botRunCount ?? 0}</div>
         </div>
-      </div>
+      </section>
+
+      <section className="panel">
+        <h2>System Overview</h2>
+        <p className="page-subtitle">
+          This CRM is set up to manage DevSpace customer accounts, collect bot
+          data, store sales outcomes, and improve outreach strategy over time.
+        </p>
+      </section>
     </div>
   )
 }
