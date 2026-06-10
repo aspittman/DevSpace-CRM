@@ -33,7 +33,12 @@ export default function LoginForm() {
       .single()
 
     if (profileError) {
-      alert('Login worked, but no profile was found for this user.')
+      console.error('Profile lookup error:', profileError)
+
+      alert(
+        `Login worked, but profile lookup failed: ${profileError.message}`
+      )
+
       setLoading(false)
       return
     }
