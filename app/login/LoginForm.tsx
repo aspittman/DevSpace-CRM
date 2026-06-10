@@ -53,80 +53,60 @@ export default function LoginForm() {
   }
 
   return (
-  <div className="min-h-screen bg-slate-950 text-white flex">
-    <aside className="hidden lg:flex w-[42%] flex-col justify-between p-12 bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900">
-      <div>
-        <div className="text-2xl font-bold tracking-tight">DevSpace</div>
-        <div className="text-sm text-blue-300 mt-1">Technologies CRM</div>
-      </div>
+  <div className="min-h-screen bg-[#050816] text-white flex items-center justify-center px-6 py-12">
+    <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(37,99,235,0.35),_transparent_35%),radial-gradient(circle_at_bottom_right,_rgba(14,165,233,0.2),_transparent_30%)]" />
 
-      <div>
-        <p className="text-sm uppercase tracking-[0.3em] text-blue-300 mb-4">
-          Full Service Agency
+    <div className="relative w-full max-w-md rounded-[2rem] border border-white/10 bg-white/10 p-8 shadow-2xl backdrop-blur-xl">
+      <div className="mb-8 text-center">
+        <p className="mb-2 text-sm font-semibold uppercase tracking-[0.25em] text-blue-300">
+          DevSpace CRM
         </p>
-        <h1 className="text-5xl font-bold leading-tight mb-6">
-          Manage leads, bots, customers, and growth data.
+
+        <h1 className="text-3xl font-bold tracking-tight text-white">
+          Sign in
         </h1>
-        <p className="text-slate-300 max-w-md">
-          Internal dashboard for DevSpace customer accounts, outreach systems,
-          bot activity, and sales intelligence.
+
+        <p className="mt-3 text-sm text-slate-300">
+          Log in to access DevSpace CRM.
         </p>
       </div>
 
-      <div className="text-sm text-slate-400">
-        Websites • Apps • SEO • Lead Generation
-      </div>
-    </aside>
-
-    <main className="flex flex-1 items-center justify-center px-6 py-12 bg-[radial-gradient(circle_at_top_right,_#1e40af,_transparent_35%),#020617]">
-      <div className="w-full max-w-md rounded-3xl bg-white/95 p-8 shadow-2xl border border-white/20 text-slate-950">
-        <div className="mb-8">
-          <p className="text-sm font-semibold text-blue-700 mb-2">
-            DevSpace CRM
-          </p>
-          <h1 className="text-3xl font-bold mb-2">Welcome back</h1>
-          <p className="text-sm text-slate-600">
-            Sign in to access your admin dashboard or customer portal.
-          </p>
+      <form onSubmit={handleSubmit} className="space-y-5">
+        <div>
+          <label className="mb-2 block text-sm font-medium text-slate-200">
+            Email
+          </label>
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="w-full rounded-xl border border-white/10 bg-white/95 px-4 py-3 text-slate-950 outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-500/20"
+            placeholder="you@devspacetechnologies.com"
+          />
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-5">
-          <div>
-            <label className="block text-sm font-semibold mb-2">Email</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-100"
-              placeholder="you@devspacetechnologies.com"
-            />
-          </div>
+        <div>
+          <label className="mb-2 block text-sm font-medium text-slate-200">
+            Password
+          </label>
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="w-full rounded-xl border border-white/10 bg-white/95 px-4 py-3 text-slate-950 outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-500/20"
+            placeholder="••••••••"
+          />
+        </div>
 
-          <div>
-            <label className="block text-sm font-semibold mb-2">Password</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-100"
-              placeholder="••••••••"
-            />
-          </div>
-
-          <button
-            disabled={loading}
-            type="submit"
-            className="w-full rounded-xl bg-blue-700 text-white py-3 font-semibold shadow-lg shadow-blue-900/20 hover:bg-blue-800 disabled:opacity-60"
-          >
-            {loading ? 'Signing in...' : 'Sign in'}
-          </button>
-        </form>
-
-        <p className="mt-6 text-xs text-slate-500 text-center">
-          Protected access for DevSpace admins and customer accounts.
-        </p>
-      </div>
-    </main>
+        <button
+          disabled={loading}
+          type="submit"
+          className="w-full rounded-xl bg-blue-600 py-3 font-semibold text-white shadow-lg shadow-blue-900/30 transition hover:bg-blue-500 disabled:opacity-60"
+        >
+          {loading ? 'Signing In...' : 'Sign In'}
+        </button>
+      </form>
+    </div>
   </div>
 )
 }
