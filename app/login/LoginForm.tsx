@@ -53,60 +53,60 @@ export default function LoginForm() {
   }
 
   return (
-  <div className="min-h-screen bg-[#050816] text-white flex items-center justify-center px-6 py-12">
-    <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(37,99,235,0.35),_transparent_35%),radial-gradient(circle_at_bottom_right,_rgba(14,165,233,0.2),_transparent_30%)]" />
+    <div className="min-h-screen bg-[#050816] text-white flex items-center justify-center px-6 py-12">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(37,99,235,0.35),_transparent_35%),radial-gradient(circle_at_bottom_right,_rgba(14,165,233,0.2),_transparent_30%)]" />
 
-    <div className="relative w-full max-w-md rounded-[2rem] border border-white/10 bg-white/10 p-8 shadow-2xl backdrop-blur-xl">
-      <div className="mb-8 text-center">
-        <p className="mb-2 text-sm font-semibold uppercase tracking-[0.25em] text-blue-300">
-          DevSpace CRM
-        </p>
+      <div className="relative w-full max-w-md rounded-[2rem] border border-white/10 bg-white/10 p-8 shadow-2xl backdrop-blur-xl">
+        <div className="mb-8 text-center">
+          <p className="mb-2 text-sm font-semibold uppercase tracking-[0.25em] text-blue-300">
+            DevSpace CRM
+          </p>
 
-        <h1 className="text-3xl font-bold tracking-tight text-white">
-          Sign in
-        </h1>
+          <h1 className="text-3xl font-bold tracking-tight text-white">
+            Sign in
+          </h1>
 
-        <p className="mt-3 text-sm text-slate-300">
-          Log in to access DevSpace CRM.
-        </p>
+          <p className="mt-3 text-sm text-slate-300">
+            Log in to access DevSpace CRM.
+          </p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <div>
+            <label className="mb-2 block text-sm font-medium text-slate-200">
+              Email
+            </label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full rounded-xl border border-white/10 bg-white/95 px-4 py-3 text-slate-950 outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-500/20"
+              placeholder="you@devspacetechnologies.com"
+            />
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-medium text-slate-200">
+              Password
+            </label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full rounded-xl border border-white/10 bg-white/95 px-4 py-3 text-slate-950 outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-500/20"
+              placeholder="••••••••"
+            />
+          </div>
+
+          <button
+            disabled={loading}
+            type="submit"
+            className="w-full rounded-xl bg-blue-600 py-3 font-semibold text-white shadow-lg shadow-blue-900/30 transition hover:bg-blue-500 disabled:opacity-60"
+          >
+            {loading ? 'Signing In...' : 'Sign In'}
+          </button>
+        </form>
       </div>
-
-      <form onSubmit={handleSubmit} className="space-y-5">
-        <div>
-          <label className="mb-2 block text-sm font-medium text-slate-200">
-            Email
-          </label>
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full rounded-xl border border-white/10 bg-white/95 px-4 py-3 text-slate-950 outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-500/20"
-            placeholder="you@devspacetechnologies.com"
-          />
-        </div>
-
-        <div>
-          <label className="mb-2 block text-sm font-medium text-slate-200">
-            Password
-          </label>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full rounded-xl border border-white/10 bg-white/95 px-4 py-3 text-slate-950 outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-500/20"
-            placeholder="••••••••"
-          />
-        </div>
-
-        <button
-          disabled={loading}
-          type="submit"
-          className="w-full rounded-xl bg-blue-600 py-3 font-semibold text-white shadow-lg shadow-blue-900/30 transition hover:bg-blue-500 disabled:opacity-60"
-        >
-          {loading ? 'Signing In...' : 'Sign In'}
-        </button>
-      </form>
     </div>
-  </div>
-)
+  )
 }
