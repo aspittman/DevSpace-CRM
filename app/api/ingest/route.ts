@@ -121,7 +121,7 @@ export async function POST(req: NextRequest) {
     const { data: newLead, error: leadError } = await supabaseAdmin
       .from('leads')
       .insert({
-        organization_id: organizationId,
+        organization_id: input.organization_id ?? null,
         company_id: company.id,
         contact_id: contact?.id ?? null,
         source_bot: input.source_bot,
