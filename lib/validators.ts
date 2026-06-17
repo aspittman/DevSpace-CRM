@@ -6,6 +6,7 @@ export const ingestLeadSchema = z.object({
   source_bot: z.enum([
     'domain_merchant',
     'apollo_outreach',
+    'afternic_sync',
     'devspace_outreach',
     'event_scout',
     'microgreens',
@@ -37,6 +38,7 @@ export const ingestLeadSchema = z.object({
   lead: z.object({
     lead_type: z.enum([
       'domain_candidate',
+      'domain_sale',
       'domain_outreach',
       'buyer_outreach',
       'website_outreach',

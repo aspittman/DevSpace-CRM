@@ -13,7 +13,17 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json()
 
-    const { organization_id, service_key, service_name, status } = body
+    const {
+      organization_id,
+      service_key,
+      service_name,
+      niche,
+      is_enabled,
+      email_enabled,
+      approval_required,
+      daily_limit,
+      config_json,
+    } = body
 
     if (!organization_id || !service_key || !service_name) {
       return json(
@@ -25,20 +35,43 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const { data, error } = await supabaseAdmin
+    const servicePayload = {
+      organization_id,
+      service_key,
+      service_name,
+      niche: niche ?? null,
+      is_enabled: is_enabled ?? true,
+      email_enabled: email_enabled ?? false,
+      approval_required: approval_required ?? true,
+      daily_limit: daily_limit ?? 25,
+      config_json: config_json ?? {},
+      updated_at: new Date().toISOString(),
+    }
+
+    let existingQuery = supabaseAdmin
       .from('organization_services')
-      .upsert(
-        {
-          organization_id,
-          service_key,
-          service_name,
-          status: status ?? 'active',
-          updated_at: new Date().toISOString(),
-        },
-        {
-          onConflict: 'organization_id,service_key',
-        },
-      )
+      .select('id')
+      .eq('organization_id', organization_id)
+      .eq('service_key', service_key)
+
+    if (niche) {
+      existingQuery = existingQuery.eq('niche', niche)
+    } else {
+      existingQuery = existingQuery.is('niche', null)
+    }
+
+    const { data: existing, error: existingError } = await existingQuery.maybeSingle()
+
+    if (existingError) throw existingError
+
+    const query = existing
+      ? supabaseAdmin
+          .from('organization_services')
+          .update(servicePayload)
+          .eq('id', existing.id)
+      : supabaseAdmin.from('organization_services').insert(servicePayload)
+
+    const { data, error } = await query
       .select()
       .single()
 
