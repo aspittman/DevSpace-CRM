@@ -3,13 +3,13 @@
 @tailwind utilities;
 
 :root {
-  --bg: #f6f8fb;
-  --panel: #ffffff;
-  --border: #e5e7eb;
-  --text: #0f172a;
-  --muted: #64748b;
-  --brand: #111827;
-  --brand-soft: #eef2ff;
+  --bg: #070814;
+  --panel: rgba(15, 23, 42, 0.78);
+  --border: rgba(125, 211, 252, 0.18);
+  --text: #f8fafc;
+  --muted: #a8b3cf;
+  --brand: #38bdf8;
+  --brand-soft: rgba(124, 58, 237, 0.16);
 }
 
 * {
@@ -139,26 +139,53 @@ a {
 }
 
 .app-shell {
+  position: relative;
+  isolation: isolate;
   min-height: 100vh;
   display: grid;
   grid-template-columns: 260px 1fr;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 20% 10%, rgba(124, 58, 237, 0.26), transparent 30%),
+    radial-gradient(circle at 86% 12%, rgba(14, 165, 233, 0.22), transparent 34%),
+    linear-gradient(135deg, #050712 0%, #0d1024 48%, #150b2d 100%);
+  color: #f8fafc;
+}
+
+.app-shell::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(148, 163, 184, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(148, 163, 184, 0.06) 1px, transparent 1px);
+  background-size: 64px 64px;
+  mask-image: linear-gradient(to bottom, black, transparent 88%);
 }
 
 .sidebar {
-  background: #0f172a;
-  color: white;
+  min-height: 100vh;
+  border-right: 1px solid rgba(125, 211, 252, 0.14);
+  background:
+    linear-gradient(180deg, rgba(8, 13, 32, 0.96), rgba(13, 8, 31, 0.94)),
+    rgba(2, 6, 23, 0.94);
+  color: #fff;
   padding: 24px;
+  box-shadow: 18px 0 48px rgba(2, 6, 23, 0.34);
 }
 
 .sidebar-title {
   font-size: 22px;
   font-weight: 800;
   margin-bottom: 28px;
+  color: #fff;
 }
 
 .sidebar-section {
   margin: 24px 0 8px;
-  color: #94a3b8;
+  color: #67e8f9;
   font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -167,16 +194,26 @@ a {
 .sidebar-link {
   display: block;
   padding: 10px 12px;
-  border-radius: 10px;
-  color: #e5e7eb;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: #dbeafe;
   margin-bottom: 4px;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    transform 160ms ease;
 }
 
 .sidebar-link:hover {
-  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(125, 211, 252, 0.24);
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.28), rgba(14, 165, 233, 0.16));
+  color: #fff;
+  transform: translateX(2px);
 }
 
 .main {
+  min-width: 0;
   padding: 32px;
 }
 
@@ -185,12 +222,14 @@ a {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 28px;
+  gap: 18px;
 }
 
 .page-title {
   font-size: 32px;
   font-weight: 800;
   margin: 0;
+  color: #fff;
 }
 
 .page-subtitle {
@@ -207,9 +246,12 @@ a {
 .card {
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 18px;
+  border-radius: 8px;
   padding: 22px;
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
+  box-shadow:
+    0 18px 50px rgba(2, 6, 23, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(18px);
 }
 
 .card-label {
@@ -221,22 +263,97 @@ a {
   font-size: 34px;
   font-weight: 800;
   margin-top: 8px;
+  color: #fff;
 }
 
 .panel {
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 18px;
+  border-radius: 8px;
   padding: 24px;
   margin-top: 24px;
+  box-shadow:
+    0 18px 50px rgba(2, 6, 23, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(18px);
 }
 
 .button {
-  background: var(--brand);
+  border: 1px solid rgba(125, 211, 252, 0.34);
+  background: linear-gradient(135deg, #7c3aed, #0284c7);
   color: white;
   padding: 10px 14px;
-  border-radius: 10px;
+  border-radius: 8px;
   font-weight: 700;
+  box-shadow: 0 14px 34px rgba(14, 165, 233, 0.16);
+}
+
+.data-row {
+  overflow: hidden;
+  border: 1px solid rgba(125, 211, 252, 0.16);
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.68);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.data-row summary {
+  list-style-position: inside;
+}
+
+.data-row summary:hover {
+  background: rgba(125, 211, 252, 0.06);
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  border: 1px solid rgba(125, 211, 252, 0.24);
+  border-radius: 999px;
+  background: rgba(14, 165, 233, 0.1);
+  padding: 5px 10px;
+  color: #cffafe;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.empty-state {
+  border: 1px dashed rgba(148, 163, 184, 0.35);
+  border-radius: 8px;
+  padding: 24px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.app-shell .bg-white,
+.app-shell .bg-slate-50 {
+  background-color: rgba(15, 23, 42, 0.68) !important;
+}
+
+.app-shell .bg-slate-100 {
+  background-color: rgba(30, 41, 59, 0.78) !important;
+}
+
+.app-shell .border,
+.app-shell .border-slate-200,
+.app-shell .border-slate-300 {
+  border-color: rgba(125, 211, 252, 0.16) !important;
+}
+
+.app-shell .text-slate-950,
+.app-shell .text-slate-900,
+.app-shell .text-slate-600 {
+  color: #f8fafc !important;
+}
+
+.app-shell .text-slate-500,
+.app-shell .text-slate-400 {
+  color: var(--muted) !important;
+}
+
+.app-shell .hover\:bg-slate-50:hover {
+  background-color: rgba(125, 211, 252, 0.06) !important;
 }
 
 @media (max-width: 900px) {
@@ -246,6 +363,15 @@ a {
 
   .sidebar {
     display: none;
+  }
+
+  .main {
+    padding: 22px;
+  }
+
+  .topbar {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .card-grid {
