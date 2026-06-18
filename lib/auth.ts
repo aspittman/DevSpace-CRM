@@ -38,3 +38,13 @@ export async function requireAdmin() {
 
   return profile
 }
+
+export async function requireCustomer() {
+  const profile = await requireUser()
+
+  if (profile.role === 'admin') {
+    redirect('/admin')
+  }
+
+  return profile
+}
