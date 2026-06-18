@@ -2,6 +2,7 @@ import './globals.css'
 import Link from 'next/link'
 import type { ReactNode } from 'react'
 import { getCurrentProfile } from '../lib/auth'
+import LogoutButton from '../components/layout/logout-button'
 
 const adminLinks = [
   { href: '/admin', label: 'Dashboard' },
@@ -40,6 +41,10 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
                   {link.label}
                 </Link>
               ))}
+
+              <div className="sidebar-actions">
+                <LogoutButton className="sidebar-logout" />
+              </div>
             </aside>
 
             <main className="main">{children}</main>

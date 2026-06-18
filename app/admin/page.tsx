@@ -1,5 +1,6 @@
 import { supabaseAdmin } from '../../lib/supabase-admin'
 import { requireAdmin } from '../../lib/auth'
+import LogoutButton from '../../components/layout/logout-button'
 
 export default async function AdminDashboardPage() {
   await requireAdmin()
@@ -21,9 +22,7 @@ export default async function AdminDashboardPage() {
           </p>
         </div>
 
-        <a className="button" href="/admin/customers">
-          View Customers
-        </a>
+        <LogoutButton />
       </div>
 
       <section className="card-grid">
