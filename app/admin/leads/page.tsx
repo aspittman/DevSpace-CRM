@@ -160,7 +160,7 @@ export default async function LeadsPage() {
           </div>
         </div>
 
-        <div className="space-y-3">
+        <div className="grid gap-4 xl:grid-cols-2">
           {leads.length === 0 ? (
             <div className="empty-state">
               No bot leads with organization IDs were found in Supabase.
@@ -177,7 +177,7 @@ export default async function LeadsPage() {
 
               return (
                 <details key={lead.id} className="data-row">
-                  <summary className="grid cursor-pointer gap-4 p-4 md:grid-cols-[minmax(220px,1.5fr)_minmax(160px,1fr)_repeat(4,minmax(90px,0.7fr))] md:items-center">
+                  <summary className="cursor-pointer p-4">
                     <div>
                       <Link
                         href={`/admin/leads/${lead.id}`}
@@ -189,25 +189,28 @@ export default async function LeadsPage() {
                         {company?.domain ?? company?.website ?? 'No domain'}
                       </div>
                     </div>
-                    <Metric
-                      label="Organization"
-                      value={organization?.name ?? lead.organization_id}
-                    />
-                    <Metric label="Bot" value={formatBotName(lead.source_bot)} />
-                    <Metric label="Score" value={lead.score} />
-                    <Metric label="Status" value={lead.status} />
-                    <Metric label="Created" value={formatDate(lead.created_at)} />
+
+                    <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                      <Metric
+                        label="Organization"
+                        value={organization?.name ?? lead.organization_id}
+                      />
+                      <Metric label="Bot" value={formatBotName(lead.source_bot)} />
+                      <Metric label="Score" value={lead.score} />
+                      <Metric label="Status" value={lead.status} />
+                      <Metric label="Created" value={formatDate(lead.created_at)} />
+                    </div>
                   </summary>
 
                   <div className="border-t border-white/10 p-4">
-                    <div className="grid gap-3 md:grid-cols-4">
+                    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                       <InfoBlock label="Organization ID" value={lead.organization_id} />
                       <InfoBlock label="Lead Type" value={lead.lead_type} />
                       <InfoBlock label="Updated" value={formatDate(lead.updated_at)} />
                       <InfoBlock label="Location" value={location || 'No location'} />
                     </div>
 
-                    <div className="mt-5 grid gap-4 lg:grid-cols-3">
+                    <div className="mt-5 grid gap-4 lg:grid-cols-2 2xl:grid-cols-3">
                       <DetailPanel title="Contact">
                         <DetailLine label="Name" value={contact?.name ?? 'No contact name'} />
                         <DetailLine label="Email" value={contact?.email ?? 'No email'} />

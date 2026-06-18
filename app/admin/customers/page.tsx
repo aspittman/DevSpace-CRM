@@ -310,7 +310,7 @@ export default async function AdminCustomersPage() {
           </div>
         </div>
 
-        <div className="space-y-3">
+        <div className="grid gap-4 xl:grid-cols-2">
           {customers.length === 0 ? (
             <div className="rounded-lg border border-dashed border-slate-300 p-6 text-sm text-slate-600">
               No organizations were found in Supabase.
@@ -333,25 +333,28 @@ export default async function AdminCustomersPage() {
               return (
                 <details
                   key={customer.id}
-                  className="rounded-lg border border-slate-200 bg-white"
+                  className="overflow-hidden rounded-lg border border-slate-200 bg-white"
                 >
-                  <summary className="grid cursor-pointer gap-4 p-4 hover:bg-slate-50 md:grid-cols-[minmax(220px,1.5fr)_repeat(6,minmax(90px,1fr))] md:items-center">
+                  <summary className="cursor-pointer p-4 hover:bg-slate-50">
                     <div>
                       <div className="font-bold text-slate-950">{customer.name}</div>
                       <div className="mt-1 break-all text-xs text-slate-500">
                         {customer.slug ?? 'No slug'} · {customer.id}
                       </div>
                     </div>
-                    <Metric label="Type" value={customer.type} />
-                    <Metric label="People" value={customer.people.length} />
-                    <Metric label="Contacts" value={customer.contacts.length} />
-                    <Metric label="Leads" value={customer.leads.length} />
-                    <Metric label="Sales" value={formatMoney(dealValue)} />
-                    <Metric label="Latest" value={formatDate(latestActivity)} />
+
+                    <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                      <Metric label="Type" value={customer.type} />
+                      <Metric label="People" value={customer.people.length} />
+                      <Metric label="Contacts" value={customer.contacts.length} />
+                      <Metric label="Leads" value={customer.leads.length} />
+                      <Metric label="Sales" value={formatMoney(dealValue)} />
+                      <Metric label="Latest" value={formatDate(latestActivity)} />
+                    </div>
                   </summary>
 
                   <div className="border-t border-slate-200 p-4">
-                    <div className="grid gap-3 md:grid-cols-4">
+                    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                       <InfoBlock label="Created" value={formatDate(customer.created_at)} />
                       <InfoBlock label="Updated" value={formatDate(customer.updated_at)} />
                       <InfoBlock label="Services" value={customer.services.length} />
