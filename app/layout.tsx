@@ -1,16 +1,13 @@
 import './globals.css'
 import Link from 'next/link'
 import type { ReactNode } from 'react'
-import { getCurrentProfile } from '../lib/auth'
+import { getCurrentProfile, isDomainPortfolioOwner } from '../lib/auth'
 import LogoutButton from '../components/layout/logout-button'
 
 const adminLinks = [
   { href: '/admin', label: 'Dashboard' },
   { href: '/admin/customers', label: 'Customers' },
   { href: '/admin/leads', label: 'Leads' },
-  { href: '/admin/domain-intelligence', label: 'Domain Intelligence' },
-  { href: '/admin/apollo-outreach', label: 'Apollo Outreach' },
-  { href: '/admin/sales-data', label: 'Sales Data' },
   { href: '/admin/insights', label: 'Insights' },
   { href: '/admin/bot-runs', label: 'Bot Runs' },
 ]
@@ -26,6 +23,7 @@ const portalLinks = [
 export default async function RootLayout({ children }: { children: ReactNode }) {
   const profile = await getCurrentProfile()
   const isAdmin = profile?.role === 'admin'
+  const showDomainPortfolio = isAdmin && isDomainPortfolioOwner(profile)
   const links = isAdmin ? adminLinks : portalLinks
   const sectionLabel = isAdmin ? 'DevSpace' : 'Customer Portal'
 
@@ -49,7 +47,17 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
               </div>
             </aside>
 
-            <main className="main">{children}</main>
+            <main className="main">
+              {showDomainPortfolio ? (
+                <div className="global-actions">
+                  <Link className="button" href="/admin/domain-portfolio">
+                    Domain Portfolio
+                  </Link>
+                </div>
+              ) : null}
+
+              {children}
+            </main>
           </div>
         ) : (
           children

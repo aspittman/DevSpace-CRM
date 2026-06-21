@@ -1,6 +1,12 @@
 import { redirect } from 'next/navigation'
 import { createSupabaseServerClient } from './supabase-server'
 
+export const DOMAIN_PORTFOLIO_OWNER_EMAIL = 'aaron@devspacetechnologies.com'
+
+export function isDomainPortfolioOwner(profile: { email?: string | null } | null | undefined) {
+  return profile?.email?.toLowerCase() === DOMAIN_PORTFOLIO_OWNER_EMAIL
+}
+
 export async function getCurrentProfile() {
   const supabase = await createSupabaseServerClient()
 
@@ -34,6 +40,16 @@ export async function requireAdmin() {
 
   if (profile.role !== 'admin') {
     redirect('/portal')
+  }
+
+  return profile
+}
+
+export async function requireDomainPortfolioOwner() {
+  const profile = await requireAdmin()
+
+  if (!isDomainPortfolioOwner(profile)) {
+    redirect('/admin')
   }
 
   return profile

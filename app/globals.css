@@ -254,6 +254,12 @@ a {
   padding: 32px;
 }
 
+.global-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 18px;
+}
+
 .topbar {
   display: flex;
   justify-content: space-between;
