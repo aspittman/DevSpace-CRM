@@ -4,35 +4,46 @@ import type { IngestLeadInput } from './validators'
 
 export async function findExistingCompany(input: IngestLeadInput) {
   const normalizedDomain = normalizeDomain(input.company.domain || input.company.website)
+  const organizationId = input.organization_id ?? null
 
   if (normalizedDomain) {
-    const { data } = await supabaseAdmin
+    let query = supabaseAdmin
       .from('companies')
       .select('*')
       .eq('domain', normalizedDomain)
-      .maybeSingle()
+
+    if (organizationId) query = query.eq('organization_id', organizationId)
+
+    const { data } = await query.maybeSingle()
 
     if (data) return data
   }
 
-  const { data } = await supabaseAdmin
+  let query = supabaseAdmin
     .from('companies')
     .select('*')
     .eq('name', input.company.name)
-    .maybeSingle()
+
+  if (organizationId) query = query.eq('organization_id', organizationId)
+
+  const { data } = await query.maybeSingle()
 
   return data
 }
 
 export async function findExistingContact(input: IngestLeadInput, companyId: string) {
   const email = normalizeEmail(input.contact?.email)
+  const organizationId = input.organization_id ?? null
 
   if (email) {
-    const { data } = await supabaseAdmin
+    let query = supabaseAdmin
       .from('contacts')
       .select('*')
       .eq('email', email)
-      .maybeSingle()
+
+    if (organizationId) query = query.eq('organization_id', organizationId)
+
+    const { data } = await query.maybeSingle()
 
     if (data) return data
   }
@@ -52,12 +63,26 @@ export async function findExistingContact(input: IngestLeadInput, companyId: str
 }
 
 export async function findExistingLead(input: IngestLeadInput, companyId: string) {
-  const { data } = await supabaseAdmin
+  const domain = normalizeDomain(input.metadata?.domain as string | undefined) ?? normalizeDomain(input.company.domain || input.company.website)
+  const email = normalizeEmail(input.contact?.email)
+
+  let query = supabaseAdmin
     .from('leads')
     .select('*')
+    .eq('organization_id', input.organization_id)
     .eq('company_id', companyId)
     .eq('source_bot', input.source_bot)
     .eq('lead_type', input.lead.lead_type)
+
+  if (domain) {
+    query = query.eq('raw_payload->metadata->>domain', domain)
+  }
+
+  if (email) {
+    query = query.eq('raw_payload->contact->>email', email)
+  }
+
+  const { data } = await query
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle()

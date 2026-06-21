@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server'
 import { supabaseAdmin } from '../../../../lib/supabase-admin'
-import { json } from '../../../../lib/utils'
+import { json, normalizeDomain } from '../../../../lib/utils'
 
 export async function GET(req: NextRequest) {
   try {
@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
 
     const { searchParams } = new URL(req.url)
     const organizationId = searchParams.get('organization_id')
-    const domain = searchParams.get('domain')?.toLowerCase().trim()
+    const domain = normalizeDomain(searchParams.get('domain'))
 
     if (!organizationId || !domain) {
       return json(
@@ -31,10 +31,27 @@ export async function GET(req: NextRequest) {
 
     if (error) throw error
 
+    if ((data ?? []).length > 0) {
+      return json({
+        success: true,
+        exists: true,
+        match: data?.[0] ?? null,
+      })
+    }
+
+    const { data: companies, error: companyError } = await supabaseAdmin
+      .from('companies')
+      .select('id, created_at, source_bot, domain')
+      .eq('organization_id', organizationId)
+      .eq('domain', domain)
+      .limit(1)
+
+    if (companyError) throw companyError
+
     return json({
       success: true,
-      exists: (data ?? []).length > 0,
-      match: data?.[0] ?? null,
+      exists: (companies ?? []).length > 0,
+      match: companies?.[0] ?? null,
     })
   } catch (error) {
     console.error(error)

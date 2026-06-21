@@ -8,6 +8,8 @@ const adminLinks = [
   { href: '/admin', label: 'Dashboard' },
   { href: '/admin/customers', label: 'Customers' },
   { href: '/admin/leads', label: 'Leads' },
+  { href: '/admin/domain-intelligence', label: 'Domain Intelligence' },
+  { href: '/admin/apollo-outreach', label: 'Apollo Outreach' },
   { href: '/admin/sales-data', label: 'Sales Data' },
   { href: '/admin/insights', label: 'Insights' },
   { href: '/admin/bot-runs', label: 'Bot Runs' },

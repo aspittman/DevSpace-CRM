@@ -43,10 +43,22 @@ export async function GET(req: NextRequest) {
       return json({ success: false, error: 'Service config not found' }, { status: 404 })
     }
 
+    const config = {
+      ...(data.config_json ?? {}),
+      service_key: data.service_key,
+      organization_id: data.organization_id,
+      niche: data.niche ?? null,
+      enabled: data.is_enabled,
+      email_enabled: data.email_enabled,
+      approval_required: data.approval_required,
+      daily_limit: data.daily_limit,
+      feedback_enabled: Boolean(data.config_json?.feedback_enabled),
+    }
+
     return json({
       success: true,
       service: data,
-      config: data.config_json ?? {},
+      config,
     })
   } catch (error) {
     console.error(error)

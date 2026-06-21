@@ -18,6 +18,7 @@ export async function POST(req: NextRequest) {
       service_key,
       service_name,
       niche,
+      enabled,
       is_enabled,
       email_enabled,
       approval_required,
@@ -25,11 +26,11 @@ export async function POST(req: NextRequest) {
       config_json,
     } = body
 
-    if (!organization_id || !service_key || !service_name) {
+    if (!organization_id || !service_key) {
       return json(
         {
           success: false,
-          error: 'organization_id, service_key, and service_name are required',
+          error: 'organization_id and service_key are required',
         },
         { status: 400 },
       )
@@ -38,9 +39,9 @@ export async function POST(req: NextRequest) {
     const servicePayload = {
       organization_id,
       service_key,
-      service_name,
+      service_name: service_name ?? service_key.replace(/_/g, ' '),
       niche: niche ?? null,
-      is_enabled: is_enabled ?? true,
+      is_enabled: is_enabled ?? enabled ?? true,
       email_enabled: email_enabled ?? false,
       approval_required: approval_required ?? true,
       daily_limit: daily_limit ?? 25,

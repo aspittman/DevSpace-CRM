@@ -4,6 +4,7 @@ import { logActivity } from '../../../lib/activity'
 import { findExistingCompany, findExistingContact, findExistingLead } from '../../../lib/dedupe'
 import { normalizeDomain, normalizeEmail, json } from '../../../lib/utils'
 import { ingestLeadSchema } from '../../../lib/validators'
+import { isOutreachStatus } from '../../../lib/outreach'
 
 export async function POST(req: NextRequest) {
   try {
@@ -37,6 +38,48 @@ export async function POST(req: NextRequest) {
 
     const normalizedDomain = normalizeDomain(input.company.domain || input.company.website)
     const normalizedEmail = normalizeEmail(input.contact?.email)
+    const metadataStatus = input.metadata?.outreach_status
+    const requestedStatus = isOutreachStatus(metadataStatus) ? metadataStatus : null
+    const leadStatus = input.source_bot === 'apollo_outreach' && requestedStatus ? requestedStatus : 'new'
+    const emailApprovalState =
+      input.source_bot === 'apollo_outreach'
+        ? requestedStatus === 'approved' ||
+          requestedStatus === 'sent' ||
+          requestedStatus === 'rejected'
+          ? requestedStatus
+          : requestedStatus === 'responded' ||
+              requestedStatus === 'positive' ||
+              requestedStatus === 'negative' ||
+              requestedStatus === 'offer_received'
+            ? 'responded'
+          : 'drafted'
+        : null
+    const domainLifecycleState =
+      input.source_bot === 'afternic_sync'
+        ? 'listed'
+        : input.source_bot === 'domain_merchant'
+          ? 'candidate'
+          : null
+    const normalizedPayload = {
+      ...body,
+      company: {
+        ...body.company,
+        domain: normalizedDomain,
+      },
+      contact: body.contact
+        ? {
+            ...body.contact,
+            email: normalizedEmail,
+          }
+        : body.contact,
+      metadata: {
+        ...(body.metadata ?? {}),
+        domain: normalizedDomain,
+        contact_email: normalizedEmail,
+        email_approval_state: emailApprovalState,
+        domain_lifecycle_state: domainLifecycleState,
+      },
+    }
 
     let company = await findExistingCompany(input)
 
@@ -69,6 +112,7 @@ export async function POST(req: NextRequest) {
         const { data, error } = await supabaseAdmin
           .from('contacts')
           .insert({
+            organization_id: organizationId,
             company_id: company.id,
             name: input.contact.name ?? null,
             email: normalizedEmail,
@@ -87,15 +131,23 @@ export async function POST(req: NextRequest) {
     const existingLead = await findExistingLead(input, company.id)
 
     if (existingLead) {
+      const updatedStatus =
+        input.source_bot === 'apollo_outreach' && requestedStatus
+          ? requestedStatus
+          : existingLead.status
+
       const { data, error } = await supabaseAdmin
         .from('leads')
         .update({
           organization_id: organizationId,
           contact_id: contact?.id ?? existingLead.contact_id,
           score: input.lead.score,
+          status: updatedStatus,
+          email_approval_state: emailApprovalState ?? existingLead.email_approval_state ?? null,
+          domain_lifecycle_state: domainLifecycleState ?? existingLead.domain_lifecycle_state ?? null,
           summary: input.lead.summary ?? existingLead.summary,
           pain_points: input.lead.pain_points,
-          raw_payload: body,
+          raw_payload: normalizedPayload,
           updated_at: new Date().toISOString(),
         })
         .eq('id', existingLead.id)
@@ -126,11 +178,13 @@ export async function POST(req: NextRequest) {
         contact_id: contact?.id ?? null,
         source_bot: input.source_bot,
         lead_type: input.lead.lead_type,
-        status: 'new',
+        status: leadStatus,
+        email_approval_state: emailApprovalState,
+        domain_lifecycle_state: domainLifecycleState,
         score: input.lead.score,
         summary: input.lead.summary ?? null,
         pain_points: input.lead.pain_points,
-        raw_payload: body,
+        raw_payload: normalizedPayload,
       })
       .select()
       .single()

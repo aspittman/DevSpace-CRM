@@ -1,5 +1,21 @@
-export type SourceBot = 'domain' | 'website' | 'app_store'
-export type LeadType = 'domain_outreach' | 'website_outreach' | 'app_outreach'
+export type SourceBot =
+  | 'domain_merchant'
+  | 'apollo_outreach'
+  | 'afternic_sync'
+  | 'devspace_outreach'
+  | 'event_scout'
+  | 'microgreens'
+  | 'domain'
+  | 'website'
+  | 'app_store'
+export type LeadType =
+  | 'domain_candidate'
+  | 'domain_sale'
+  | 'domain_outreach'
+  | 'domain_buyer_outreach'
+  | 'buyer_outreach'
+  | 'website_outreach'
+  | 'app_outreach'
 export type LeadStatus =
   | 'new'
   | 'reviewing'
@@ -10,6 +26,21 @@ export type LeadStatus =
   | 'closed_won'
   | 'closed_lost'
   | 'dead'
+  | 'drafted'
+  | 'approved'
+  | 'sent'
+  | 'responded'
+  | 'rejected'
+
+export type EmailApprovalState = 'drafted' | 'approved' | 'sent' | 'responded' | 'rejected'
+export type DomainLifecycleState =
+  | 'candidate'
+  | 'approved_to_buy'
+  | 'purchased'
+  | 'listed'
+  | 'sold'
+  | 'rejected'
+  | 'expired'
 
 export interface Lead {
   id: string
@@ -18,6 +49,8 @@ export interface Lead {
   source_bot: SourceBot
   lead_type: LeadType
   status: LeadStatus
+  email_approval_state: EmailApprovalState | null
+  domain_lifecycle_state: DomainLifecycleState | null
   score: number
   summary: string | null
   pain_points: string[]

@@ -8,6 +8,8 @@ const afternicSaleSchema = z.object({
   domain: z.string().min(1),
   buyer_name: z.string().optional().nullable(),
   deal_value: z.number().nonnegative().optional().nullable(),
+  sale_price: z.number().nonnegative().optional().nullable(),
+  purchase_price: z.number().nonnegative().optional().nullable(),
   status: z.string().default('sold'),
   sold_at: z.string().datetime().optional().nullable(),
   niche: z.string().optional().nullable(),
@@ -37,6 +39,9 @@ export async function POST(req: NextRequest) {
 
     const input = parsed.data
     const domain = normalizeDomain(input.domain)
+    const salePrice = input.sale_price ?? input.deal_value ?? null
+    const grossProfit =
+      salePrice != null && input.purchase_price != null ? salePrice - input.purchase_price : null
 
     if (!domain) {
       return json({ success: false, error: 'domain is required' }, { status: 400 })
@@ -59,6 +64,9 @@ export async function POST(req: NextRequest) {
       domain,
       niche: input.niche ?? null,
       keywords: input.keywords,
+      sale_price: salePrice,
+      purchase_price: input.purchase_price ?? null,
+      gross_profit: grossProfit,
       source_bot: 'afternic_sync',
     }
 
@@ -71,7 +79,9 @@ export async function POST(req: NextRequest) {
         lead_source: 'afternic_sync',
         service_sold: domain,
         domain_name: domain,
-        deal_value: input.deal_value ?? null,
+        deal_value: salePrice,
+        purchase_price: input.purchase_price ?? null,
+        gross_profit: grossProfit,
         status: input.status,
         notes: input.notes ?? null,
         closed_at: closedAt,
@@ -89,6 +99,9 @@ export async function POST(req: NextRequest) {
           status: ['sold', 'closed_won', 'won'].includes(input.status.toLowerCase())
             ? 'closed_won'
             : input.status,
+          domain_lifecycle_state: ['sold', 'closed_won', 'won'].includes(input.status.toLowerCase())
+            ? 'sold'
+            : 'listed',
           updated_at: new Date().toISOString(),
         })
         .eq('id', leadId)

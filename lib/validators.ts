@@ -40,6 +40,7 @@ export const ingestLeadSchema = z.object({
       'domain_candidate',
       'domain_sale',
       'domain_outreach',
+      'domain_buyer_outreach',
       'buyer_outreach',
       'website_outreach',
       'app_outreach',
