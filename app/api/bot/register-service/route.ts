@@ -1,6 +1,11 @@
 import { NextRequest } from 'next/server'
 import { supabaseAdmin } from '../../../../lib/supabase-admin'
 import { json } from '../../../../lib/utils'
+import {
+  normalizeServiceNiche,
+  numberConfig,
+  serviceConfigJsonFromBody,
+} from '../../../../lib/service-config'
 
 export async function POST(req: NextRequest) {
   try {
@@ -23,7 +28,7 @@ export async function POST(req: NextRequest) {
       email_enabled,
       approval_required,
       daily_limit,
-      config_json,
+      max_prospects,
     } = body
 
     if (!organization_id || !service_key) {
@@ -36,16 +41,20 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    const configJson = serviceConfigJsonFromBody(body)
+    const serviceNiche = normalizeServiceNiche(niche ?? configJson.niche)
+    const configuredMaxProspects = numberConfig(max_prospects ?? configJson.max_prospects)
+
     const servicePayload = {
       organization_id,
       service_key,
       service_name: service_name ?? service_key.replace(/_/g, ' '),
-      niche: niche ?? null,
+      niche: serviceNiche,
       is_enabled: is_enabled ?? enabled ?? true,
       email_enabled: email_enabled ?? false,
       approval_required: approval_required ?? true,
-      daily_limit: daily_limit ?? 25,
-      config_json: config_json ?? {},
+      daily_limit: daily_limit ?? configuredMaxProspects ?? 25,
+      config_json: configJson,
       updated_at: new Date().toISOString(),
     }
 
@@ -55,8 +64,8 @@ export async function POST(req: NextRequest) {
       .eq('organization_id', organization_id)
       .eq('service_key', service_key)
 
-    if (niche) {
-      existingQuery = existingQuery.eq('niche', niche)
+    if (serviceNiche) {
+      existingQuery = existingQuery.eq('niche', serviceNiche)
     } else {
       existingQuery = existingQuery.is('niche', null)
     }

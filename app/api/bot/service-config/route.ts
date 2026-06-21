@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server'
-import { supabaseAdmin } from '../../../../lib/supabase-admin'
 import { json } from '../../../../lib/utils'
+import { findEnabledServiceConfig, normalizeServiceNiche } from '../../../../lib/service-config'
 
 export async function GET(req: NextRequest) {
   try {
@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
 
     const organizationId = searchParams.get('organization_id')
     const serviceKey = searchParams.get('service_key')
-    const niche = searchParams.get('niche')
+    const niche = normalizeServiceNiche(searchParams.get('niche'))
 
     if (!organizationId || !serviceKey) {
       return json(
@@ -24,20 +24,7 @@ export async function GET(req: NextRequest) {
       )
     }
 
-    let query = supabaseAdmin
-      .from('organization_services')
-      .select('*')
-      .eq('organization_id', organizationId)
-      .eq('service_key', serviceKey)
-      .eq('is_enabled', true)
-
-    if (niche) {
-      query = query.eq('niche', niche)
-    }
-
-    const { data, error } = await query.maybeSingle()
-
-    if (error) throw error
+    const data = await findEnabledServiceConfig(organizationId, serviceKey, niche)
 
     if (!data) {
       return json({ success: false, error: 'Service config not found' }, { status: 404 })

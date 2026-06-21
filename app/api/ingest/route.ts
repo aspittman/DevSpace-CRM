@@ -5,6 +5,12 @@ import { findExistingCompany, findExistingContact, findExistingLead } from '../.
 import { normalizeDomain, normalizeEmail, json } from '../../../lib/utils'
 import { ingestLeadSchema } from '../../../lib/validators'
 import { isOutreachStatus } from '../../../lib/outreach'
+import {
+  booleanConfig,
+  findEnabledServiceConfig,
+  normalizeServiceNiche,
+  numberConfig,
+} from '../../../lib/service-config'
 
 export async function POST(req: NextRequest) {
   try {
@@ -38,6 +44,38 @@ export async function POST(req: NextRequest) {
 
     const normalizedDomain = normalizeDomain(input.company.domain || input.company.website)
     const normalizedEmail = normalizeEmail(input.contact?.email)
+    const requestedNiche = normalizeServiceNiche(input.metadata?.niche)
+    const serviceConfig = await findEnabledServiceConfig(
+      organizationId,
+      input.source_bot,
+      requestedNiche,
+    )
+    const configJson = (serviceConfig?.config_json ?? {}) as Record<string, unknown>
+    const dryRun = booleanConfig(configJson.dry_run) ?? false
+    const minScoreToSave = numberConfig(configJson.min_score_to_save)
+
+    if (dryRun) {
+      return json({
+        success: true,
+        action: 'skipped',
+        reason: 'dry_run',
+        service_key: input.source_bot,
+        niche: serviceConfig?.niche ?? requestedNiche,
+      })
+    }
+
+    if (minScoreToSave !== null && input.lead.score < minScoreToSave) {
+      return json({
+        success: true,
+        action: 'skipped',
+        reason: 'below_min_score_to_save',
+        score: input.lead.score,
+        min_score_to_save: minScoreToSave,
+        service_key: input.source_bot,
+        niche: serviceConfig?.niche ?? requestedNiche,
+      })
+    }
+
     const metadataStatus = input.metadata?.outreach_status
     const requestedStatus = isOutreachStatus(metadataStatus) ? metadataStatus : null
     const leadStatus = input.source_bot === 'apollo_outreach' && requestedStatus ? requestedStatus : 'new'
@@ -74,6 +112,7 @@ export async function POST(req: NextRequest) {
         : body.contact,
       metadata: {
         ...(body.metadata ?? {}),
+        niche: serviceConfig?.niche ?? requestedNiche ?? body.metadata?.niche,
         domain: normalizedDomain,
         contact_email: normalizedEmail,
         email_approval_state: emailApprovalState,

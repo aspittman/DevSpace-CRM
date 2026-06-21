@@ -16,6 +16,7 @@ export type LeadType =
   | 'buyer_outreach'
   | 'website_outreach'
   | 'app_outreach'
+  | 'event_lead'
 export type LeadStatus =
   | 'new'
   | 'reviewing'
