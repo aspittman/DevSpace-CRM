@@ -4,7 +4,7 @@ import { logActivity } from '../../../lib/activity'
 import { findExistingCompany, findExistingContact, findExistingLead } from '../../../lib/dedupe'
 import { normalizeDomain, normalizeEmail, json } from '../../../lib/utils'
 import { ingestLeadSchema } from '../../../lib/validators'
-import { isOutreachStatus } from '../../../lib/outreach'
+import { isEmailOutreachSourceBot, isOutreachStatus } from '../../../lib/outreach'
 import {
   booleanConfig,
   findEnabledServiceConfig,
@@ -78,17 +78,19 @@ export async function POST(req: NextRequest) {
 
     const metadataStatus = input.metadata?.outreach_status
     const requestedStatus = isOutreachStatus(metadataStatus) ? metadataStatus : null
-    const leadStatus = input.source_bot === 'apollo_outreach' && requestedStatus ? requestedStatus : 'new'
+    const reviewableStatus = input.source_bot === 'devspace_outreach' ? null : requestedStatus
+    const isEmailOutreachLead = isEmailOutreachSourceBot(input.source_bot)
+    const leadStatus = isEmailOutreachLead ? reviewableStatus ?? 'drafted' : 'new'
     const emailApprovalState =
-      input.source_bot === 'apollo_outreach'
-        ? requestedStatus === 'approved' ||
-          requestedStatus === 'sent' ||
-          requestedStatus === 'rejected'
-          ? requestedStatus
-          : requestedStatus === 'responded' ||
-              requestedStatus === 'positive' ||
-              requestedStatus === 'negative' ||
-              requestedStatus === 'offer_received'
+      isEmailOutreachLead
+        ? reviewableStatus === 'approved' ||
+          reviewableStatus === 'sent' ||
+          reviewableStatus === 'rejected'
+          ? reviewableStatus
+          : reviewableStatus === 'responded' ||
+              reviewableStatus === 'positive' ||
+              reviewableStatus === 'negative' ||
+              reviewableStatus === 'offer_received'
             ? 'responded'
           : 'drafted'
         : null
@@ -115,6 +117,7 @@ export async function POST(req: NextRequest) {
         niche: serviceConfig?.niche ?? requestedNiche ?? body.metadata?.niche,
         domain: normalizedDomain,
         contact_email: normalizedEmail,
+        outreach_status: isEmailOutreachLead ? leadStatus : body.metadata?.outreach_status,
         email_approval_state: emailApprovalState,
         domain_lifecycle_state: domainLifecycleState,
       },
@@ -170,10 +173,32 @@ export async function POST(req: NextRequest) {
     const existingLead = await findExistingLead(input, company.id)
 
     if (existingLead) {
+      const shouldPreserveApprovalState =
+        isEmailOutreachLead &&
+        !reviewableStatus &&
+        existingLead.email_approval_state &&
+        existingLead.email_approval_state !== 'drafted'
+      const nextEmailApprovalState = shouldPreserveApprovalState
+        ? existingLead.email_approval_state
+        : emailApprovalState ?? existingLead.email_approval_state ?? null
       const updatedStatus =
-        input.source_bot === 'apollo_outreach' && requestedStatus
-          ? requestedStatus
-          : existingLead.status
+        isEmailOutreachLead && reviewableStatus
+          ? reviewableStatus
+          : shouldPreserveApprovalState
+            ? existingLead.status
+            : isEmailOutreachLead
+              ? 'drafted'
+              : existingLead.status
+      const updatedPayload = shouldPreserveApprovalState
+        ? {
+            ...normalizedPayload,
+            metadata: {
+              ...normalizedPayload.metadata,
+              outreach_status: updatedStatus,
+              email_approval_state: nextEmailApprovalState,
+            },
+          }
+        : normalizedPayload
 
       const { data, error } = await supabaseAdmin
         .from('leads')
@@ -182,11 +207,11 @@ export async function POST(req: NextRequest) {
           contact_id: contact?.id ?? existingLead.contact_id,
           score: input.lead.score,
           status: updatedStatus,
-          email_approval_state: emailApprovalState ?? existingLead.email_approval_state ?? null,
+          email_approval_state: nextEmailApprovalState,
           domain_lifecycle_state: domainLifecycleState ?? existingLead.domain_lifecycle_state ?? null,
           summary: input.lead.summary ?? existingLead.summary,
           pain_points: input.lead.pain_points,
-          raw_payload: normalizedPayload,
+          raw_payload: updatedPayload,
           updated_at: new Date().toISOString(),
         })
         .eq('id', existingLead.id)

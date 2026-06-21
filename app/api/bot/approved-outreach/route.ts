@@ -1,7 +1,14 @@
 import { NextRequest } from 'next/server'
 import { supabaseAdmin } from '../../../../lib/supabase-admin'
 import { json, normalizeEmail } from '../../../../lib/utils'
-import { outreachBody, outreachDomain, outreachStatus, outreachSubject } from '../../../../lib/outreach'
+import {
+  emailOutreachSourceBots,
+  isEmailOutreachSourceBot,
+  outreachBody,
+  outreachDomain,
+  outreachStatus,
+  outreachSubject,
+} from '../../../../lib/outreach'
 
 function authFailed(req: NextRequest) {
   return req.headers.get('authorization') !== `Bearer ${process.env.BOT_API_SECRET}`
@@ -15,6 +22,12 @@ export async function GET(req: NextRequest) {
 
     const { searchParams } = new URL(req.url)
     const organizationId = searchParams.get('organization_id')
+    const requestedSourceBot = searchParams.get('source_bot')
+    const sourceBots = isEmailOutreachSourceBot(requestedSourceBot)
+      ? [requestedSourceBot]
+      : requestedSourceBot === 'all'
+        ? [...emailOutreachSourceBots]
+        : ['apollo_outreach']
     const limit = Math.min(Number(searchParams.get('limit') ?? 50) || 50, 100)
 
     if (!organizationId) {
@@ -28,6 +41,7 @@ export async function GET(req: NextRequest) {
         organization_id,
         contact_id,
         company_id,
+        source_bot,
         status,
         score,
         summary,
@@ -38,7 +52,7 @@ export async function GET(req: NextRequest) {
         companies (id, name, domain, website)
       `)
       .eq('organization_id', organizationId)
-      .eq('source_bot', 'apollo_outreach')
+      .in('source_bot', sourceBots)
       .in('status', ['approved'])
       .order('updated_at', { ascending: true })
       .limit(limit)
@@ -77,6 +91,7 @@ export async function GET(req: NextRequest) {
           contact_id: contact?.id ?? lead.contact_id,
           company_id: company?.id ?? lead.company_id,
           organization_id: lead.organization_id,
+          source_bot: lead.source_bot,
           to_email: toEmail,
           prospect_name: contact?.name ?? null,
           company_name: company?.name ?? null,

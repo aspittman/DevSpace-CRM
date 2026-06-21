@@ -13,6 +13,14 @@ export const outreachStatuses = [
 
 export type OutreachStatus = (typeof outreachStatuses)[number]
 
+export const emailOutreachSourceBots = ['apollo_outreach', 'devspace_outreach'] as const
+
+export type EmailOutreachSourceBot = (typeof emailOutreachSourceBots)[number]
+
+export function isEmailOutreachSourceBot(value: unknown): value is EmailOutreachSourceBot {
+  return typeof value === 'string' && emailOutreachSourceBots.includes(value as EmailOutreachSourceBot)
+}
+
 export function isOutreachStatus(value: unknown): value is OutreachStatus {
   return typeof value === 'string' && outreachStatuses.includes(value as OutreachStatus)
 }
