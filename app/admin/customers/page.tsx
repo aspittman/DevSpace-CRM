@@ -310,7 +310,7 @@ export default async function AdminCustomersPage() {
           </div>
         </div>
 
-        <div className="grid gap-4 xl:grid-cols-2">
+        <div className="grid gap-4">
           {customers.length === 0 ? (
             <div className="rounded-lg border border-dashed border-slate-300 p-6 text-sm text-slate-600">
               No organizations were found in Supabase.
@@ -335,15 +335,15 @@ export default async function AdminCustomersPage() {
                   key={customer.id}
                   className="overflow-hidden rounded-lg border border-slate-200 bg-white"
                 >
-                  <summary className="cursor-pointer p-4 hover:bg-slate-50">
-                    <div>
+                  <summary className="grid cursor-pointer gap-4 p-4 hover:bg-slate-50 lg:grid-cols-[minmax(240px,1.1fr)_minmax(0,2fr)] lg:items-center">
+                    <div className="min-w-0">
                       <div className="font-bold text-slate-950">{customer.name}</div>
                       <div className="mt-1 break-all text-xs text-slate-500">
                         {customer.slug ?? 'No slug'} · {customer.id}
                       </div>
                     </div>
 
-                    <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                    <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
                       <Metric label="Type" value={customer.type} />
                       <Metric label="People" value={customer.people.length} />
                       <Metric label="Contacts" value={customer.contacts.length} />

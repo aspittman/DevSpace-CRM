@@ -1,4 +1,3 @@
-import Link from 'next/link'
 import { Check, Send, X } from 'lucide-react'
 import { revalidatePath } from 'next/cache'
 import { requireDomainPortfolioOwner } from '../../../lib/auth'
@@ -292,18 +291,6 @@ export default async function DomainPortfolioPage({
           <div className="card-value">{formatMoney(totalProfit)}</div>
         </div>
       </section>
-
-      <nav className="panel flex flex-wrap gap-2">
-        {tabs.map((item) => (
-          <Link
-            key={item.key}
-            href={`/admin/domain-portfolio?tab=${item.key}`}
-            className={`status-pill ${tab === item.key ? 'border-cyan-300/60 text-cyan-100' : ''}`}
-          >
-            {item.label}
-          </Link>
-        ))}
-      </nav>
 
       {tab === 'portfolio' ? <PortfolioTab rows={rows} /> : null}
       {tab === 'recommendations' ? <RecommendationsTab leads={domainMerchantLeads} /> : null}

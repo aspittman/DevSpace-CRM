@@ -160,7 +160,7 @@ export default async function LeadsPage() {
           </div>
         </div>
 
-        <div className="grid gap-4 xl:grid-cols-2">
+        <div className="grid gap-4">
           {leads.length === 0 ? (
             <div className="empty-state">
               No bot leads with organization IDs were found in Supabase.
@@ -177,8 +177,8 @@ export default async function LeadsPage() {
 
               return (
                 <details key={lead.id} className="data-row">
-                  <summary className="cursor-pointer p-4">
-                    <div>
+                  <summary className="grid cursor-pointer gap-4 p-4 lg:grid-cols-[minmax(220px,1.15fr)_minmax(0,2fr)] lg:items-center">
+                    <div className="min-w-0">
                       <Link
                         href={`/admin/leads/${lead.id}`}
                         className="font-bold text-white hover:text-cyan-200"
@@ -190,7 +190,7 @@ export default async function LeadsPage() {
                       </div>
                     </div>
 
-                    <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                    <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
                       <Metric
                         label="Organization"
                         value={organization?.name ?? lead.organization_id}

@@ -1,6 +1,5 @@
 import { supabaseAdmin } from '../../lib/supabase-admin'
 import { requireAdmin } from '../../lib/auth'
-import LogoutButton from '../../components/layout/logout-button'
 import { revalidatePath } from 'next/cache'
 import { logActivity } from '../../lib/activity'
 import {
@@ -228,8 +227,6 @@ export default async function AdminDashboardPage() {
             Monitor customers, bot activity, lead flow, and sales intelligence.
           </p>
         </div>
-
-        <LogoutButton />
       </div>
 
       <section className="card-grid">

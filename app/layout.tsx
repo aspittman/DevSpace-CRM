@@ -3,29 +3,12 @@ import Link from 'next/link'
 import type { ReactNode } from 'react'
 import { getCurrentProfile, isDomainPortfolioOwner } from '../lib/auth'
 import LogoutButton from '../components/layout/logout-button'
-
-const adminLinks = [
-  { href: '/admin', label: 'Dashboard' },
-  { href: '/admin/customers', label: 'Customers' },
-  { href: '/admin/leads', label: 'Leads' },
-  { href: '/admin/insights', label: 'Insights' },
-  { href: '/admin/bot-runs', label: 'Bot Runs' },
-]
-
-const portalLinks = [
-  { href: '/portal', label: 'Portal Home' },
-  { href: '/portal/stats', label: 'Stats' },
-  { href: '/portal/leads', label: 'Leads' },
-  { href: '/portal/sales-data', label: 'Sales Data' },
-  { href: '/portal/campaigns', label: 'Campaigns' },
-]
+import SidebarNav from '../components/layout/sidebar-nav'
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
   const profile = await getCurrentProfile()
   const isAdmin = profile?.role === 'admin'
   const showDomainPortfolio = isAdmin && isDomainPortfolioOwner(profile)
-  const links = isAdmin ? adminLinks : portalLinks
-  const sectionLabel = isAdmin ? 'DevSpace' : 'Customer Portal'
 
   return (
     <html lang="en">
@@ -35,12 +18,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
             <aside className="sidebar">
               <div className="sidebar-title">DevSpace CRM</div>
 
-              <div className="sidebar-section">{sectionLabel}</div>
-              {links.map((link) => (
-                <Link key={link.href} className="sidebar-link" href={link.href}>
-                  {link.label}
-                </Link>
-              ))}
+              <SidebarNav isAdmin={isAdmin} showDomainPortfolio={showDomainPortfolio} />
 
               <div className="sidebar-actions">
                 <LogoutButton className="sidebar-logout" />

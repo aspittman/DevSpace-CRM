@@ -218,6 +218,12 @@ a {
   transform: translateX(2px);
 }
 
+.sidebar-link-active {
+  border-color: rgba(125, 211, 252, 0.34);
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.28), rgba(34, 211, 238, 0.12));
+  color: #fff;
+}
+
 .sidebar-logout {
   width: 100%;
   border: 1px solid rgba(248, 113, 113, 0.3);
