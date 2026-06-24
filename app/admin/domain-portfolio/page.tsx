@@ -8,6 +8,7 @@ import {
   mergeLeadMetadata,
   outreachBody,
   outreachDomain,
+  outreachEmail,
   outreachStatus,
   outreachSubject,
   scoreReasons,
@@ -469,6 +470,7 @@ function OutreachTab({ leads, services }: { leads: LeadRecord[]; services: Servi
               const contact = firstRelation(lead.contacts)
               const reasons = scoreReasons(lead)
               const status = outreachStatus(lead)
+              const email = contact?.email ?? outreachEmail(lead)
 
               return (
                 <article key={lead.id} className="data-row p-4">
@@ -485,7 +487,7 @@ function OutreachTab({ leads, services }: { leads: LeadRecord[]; services: Servi
                       </div>
 
                       <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
-                        <Metric label="Email" value={contact?.email ?? 'No email'} />
+                        <Metric label="Email" value={email ?? 'No email'} />
                         <Metric label="Domain" value={outreachDomain(lead) || 'No domain'} />
                         <Metric label="Score" value={lead.score ?? 'n/a'} />
                         <Metric label="Updated" value={formatDate(lead.updated_at ?? lead.created_at)} />

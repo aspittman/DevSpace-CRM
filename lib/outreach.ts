@@ -54,6 +54,22 @@ export function outreachDomain(lead: { raw_payload?: unknown }) {
   return String(metadata.domain ?? metadata.domain_name ?? '').trim()
 }
 
+export function outreachEmail(lead: { raw_payload?: unknown }) {
+  const payload = asRecord(lead.raw_payload)
+  const contact = asRecord(payload.contact)
+  const metadata = leadMetadata(lead)
+  const value =
+    contact.email ??
+    metadata.contact_email ??
+    metadata.to_email ??
+    metadata.email ??
+    metadata.email_address ??
+    metadata.person_email ??
+    metadata.apollo_email
+
+  return typeof value === 'string' && value.trim() ? value.trim().toLowerCase() : null
+}
+
 export function scoreReasons(lead: { raw_payload?: unknown }) {
   const metadata = leadMetadata(lead)
   const value = metadata.score_reasons ?? metadata.score_reason ?? metadata.reasons

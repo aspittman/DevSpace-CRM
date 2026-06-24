@@ -4,7 +4,7 @@ import { logActivity } from '../../../lib/activity'
 import { findExistingCompany, findExistingContact, findExistingLead } from '../../../lib/dedupe'
 import { normalizeDomain, normalizeEmail, json } from '../../../lib/utils'
 import { ingestLeadSchema } from '../../../lib/validators'
-import { isEmailOutreachSourceBot, isOutreachStatus } from '../../../lib/outreach'
+import { isEmailOutreachSourceBot, isOutreachStatus, outreachEmail } from '../../../lib/outreach'
 import {
   booleanConfig,
   findEnabledServiceConfig,
@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
     }
 
     const normalizedDomain = normalizeDomain(input.company.domain || input.company.website)
-    const normalizedEmail = normalizeEmail(input.contact?.email)
+    const normalizedEmail = normalizeEmail(input.contact?.email) ?? normalizeEmail(outreachEmail(body))
     const requestedNiche = normalizeServiceNiche(input.metadata?.niche)
     const serviceConfig = await findEnabledServiceConfig(
       organizationId,
@@ -106,9 +106,9 @@ export async function POST(req: NextRequest) {
         ...body.company,
         domain: normalizedDomain,
       },
-      contact: body.contact
+      contact: body.contact || normalizedEmail
         ? {
-            ...body.contact,
+            ...(body.contact ?? {}),
             email: normalizedEmail,
           }
         : body.contact,
@@ -147,7 +147,7 @@ export async function POST(req: NextRequest) {
 
     let contact = null
 
-    if (input.contact) {
+    if (input.contact || normalizedEmail) {
       contact = await findExistingContact(input, company.id)
 
       if (!contact) {
@@ -156,12 +156,25 @@ export async function POST(req: NextRequest) {
           .insert({
             organization_id: organizationId,
             company_id: company.id,
-            name: input.contact.name ?? null,
+            name: input.contact?.name ?? null,
             email: normalizedEmail,
-            phone: input.contact.phone ?? null,
-            title: input.contact.title ?? null,
-            linkedin_url: input.contact.linkedin_url ?? null,
+            phone: input.contact?.phone ?? null,
+            title: input.contact?.title ?? null,
+            linkedin_url: input.contact?.linkedin_url ?? null,
           })
+          .select()
+          .single()
+
+        if (error) throw error
+        contact = data
+      } else if (!contact.email && normalizedEmail) {
+        const { data, error } = await supabaseAdmin
+          .from('contacts')
+          .update({
+            email: normalizedEmail,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', contact.id)
           .select()
           .single()
 

@@ -1,5 +1,5 @@
 import { supabaseAdmin } from './supabase-admin'
-import { isEmailOutreachSourceBot } from './outreach'
+import { isEmailOutreachSourceBot, outreachEmail } from './outreach'
 import { normalizeDomain, normalizeEmail } from './utils'
 import type { IngestLeadInput } from './validators'
 
@@ -33,7 +33,7 @@ export async function findExistingCompany(input: IngestLeadInput) {
 }
 
 export async function findExistingContact(input: IngestLeadInput, companyId: string) {
-  const email = normalizeEmail(input.contact?.email)
+  const email = normalizeEmail(input.contact?.email) ?? normalizeEmail(outreachEmail({ raw_payload: input }))
   const organizationId = input.organization_id ?? null
 
   if (email) {
@@ -65,7 +65,7 @@ export async function findExistingContact(input: IngestLeadInput, companyId: str
 
 export async function findExistingLead(input: IngestLeadInput, companyId: string) {
   const domain = normalizeDomain(input.metadata?.domain as string | undefined) ?? normalizeDomain(input.company.domain || input.company.website)
-  const email = normalizeEmail(input.contact?.email)
+  const email = normalizeEmail(input.contact?.email) ?? normalizeEmail(outreachEmail({ raw_payload: input }))
   const metadataIdentity = outreachMetadataIdentity(input.metadata)
 
   let query = supabaseAdmin
