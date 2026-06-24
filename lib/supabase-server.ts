@@ -20,9 +20,14 @@ export async function createSupabaseServerClient() {
         },
 
         setAll(cookiesToSet: CookieToSet[]) {
-          cookiesToSet.forEach(({ name, value, options }) => {
-            cookieStore.set(name, value, options)
-          })
+          try {
+            cookiesToSet.forEach(({ name, value, options }) => {
+              cookieStore.set(name, value, options)
+            })
+          } catch {
+            // Server Components cannot mutate cookies. Middleware refreshes auth
+            // cookies before render, so this path can safely ignore refresh writes.
+          }
         },
       },
     },
