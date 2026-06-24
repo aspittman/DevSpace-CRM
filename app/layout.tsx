@@ -1,9 +1,9 @@
 import './globals.css'
-import Link from 'next/link'
 import type { ReactNode } from 'react'
 import { getCurrentProfile, isDomainPortfolioOwner } from '../lib/auth'
 import LogoutButton from '../components/layout/logout-button'
 import SidebarNav from '../components/layout/sidebar-nav'
+import DomainPortfolioAction from '../components/layout/domain-portfolio-action'
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
   const profile = await getCurrentProfile()
@@ -28,9 +28,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
             <main className="main">
               {showDomainPortfolio ? (
                 <div className="global-actions">
-                  <Link className="button" href="/admin/domain-portfolio">
-                    Domain Portfolio
-                  </Link>
+                  <DomainPortfolioAction />
                 </div>
               ) : null}
 
