@@ -9,6 +9,7 @@ import {
   outreachBody,
   outreachDomain,
   outreachEmail,
+  outreachStatuses,
   outreachStatus,
   outreachSubject,
   scoreReasons,
@@ -84,6 +85,9 @@ const tabs: { key: TabKey; label: string }[] = [
   { key: 'signals', label: 'Signals' },
 ]
 
+const domainPortfolioSourceBots = ['domain_merchant', 'apollo_outreach', 'afternic_sync', 'domain'] as const
+const domainPortfolioOutreachLeadTypes = ['domain_outreach', 'domain_buyer_outreach', 'buyer_outreach'] as const
+
 function activeTab(value: string | undefined): TabKey {
   return tabs.some((tab) => tab.key === value) ? (value as TabKey) : 'portfolio'
 }
@@ -123,6 +127,30 @@ function metadataNumber(lead: LeadRecord, key: string) {
   const value = metadataValue(lead.raw_payload, key)
   const numericValue = typeof value === 'number' ? value : Number(value)
   return Number.isFinite(numericValue) ? numericValue : null
+}
+
+function isOutreachReviewStatus(value: string | null | undefined) {
+  return outreachStatuses.includes(String(value ?? '').toLowerCase() as (typeof outreachStatuses)[number])
+}
+
+function displayOutreachStatus(lead: LeadRecord) {
+  const status = outreachStatus(lead)
+  if (isOutreachReviewStatus(status)) return status
+  return lead.email_approval_state ?? status
+}
+
+function isDomainPortfolioOutreachLead(lead: LeadRecord) {
+  if (lead.source_bot === 'apollo_outreach') return true
+  return domainPortfolioOutreachLeadTypes.includes(lead.lead_type as (typeof domainPortfolioOutreachLeadTypes)[number])
+}
+
+function hasOutreachDraftContent(lead: LeadRecord) {
+  return Boolean(outreachSubject(lead) || outreachBody(lead) || outreachEmail(lead))
+}
+
+function shouldShowInOutreachTab(lead: LeadRecord) {
+  if (lead.source_bot === 'apollo_outreach') return true
+  return isOutreachReviewStatus(displayOutreachStatus(lead)) || hasOutreachDraftContent(lead)
 }
 
 async function updateOutreach(formData: FormData) {
@@ -213,7 +241,7 @@ export default async function DomainPortfolioPage({
         companies (name, domain, website),
         contacts (name, email, title)
       `)
-      .in('source_bot', ['domain_merchant', 'apollo_outreach', 'afternic_sync'])
+      .in('source_bot', [...domainPortfolioSourceBots])
       .order('created_at', { ascending: false })
       .limit(3000),
     supabaseAdmin
@@ -244,16 +272,12 @@ export default async function DomainPortfolioPage({
   const rows = buildDomainPerformance(leads as any[], sales as any[])
   const domainMerchantLeads = leads.filter((lead) => lead.source_bot === 'domain_merchant')
   const outreachLeads = leads
-    .filter((lead) => lead.source_bot === 'apollo_outreach')
-    .filter((lead) =>
-      ['drafted', 'approved', 'rejected', 'sent', 'responded', 'positive', 'negative', 'bounced', 'unsubscribed', 'offer_received'].includes(
-        outreachStatus(lead),
-      ),
-    )
+    .filter(isDomainPortfolioOutreachLead)
+    .filter(shouldShowInOutreachTab)
   const afternicSales = sales.filter((sale) => sale.lead_source === 'afternic_sync' || sale.domain_name)
-  const sentCount = outreachLeads.filter((lead) => outreachStatus(lead) === 'sent').length
+  const sentCount = outreachLeads.filter((lead) => displayOutreachStatus(lead) === 'sent').length
   const responseCount = outreachLeads.filter((lead) =>
-    ['responded', 'positive', 'negative', 'offer_received'].includes(outreachStatus(lead)),
+    ['responded', 'positive', 'negative', 'offer_received'].includes(displayOutreachStatus(lead)),
   ).length
   const totalProfit = rows.reduce((sum, row) => sum + Number(row.gross_profit ?? 0), 0)
   const responseRate = sentCount > 0 ? Math.round((responseCount / sentCount) * 100) : 0
@@ -391,11 +415,11 @@ function RecommendationsTab({ leads }: { leads: LeadRecord[] }) {
 }
 
 function OutreachTab({ leads, services }: { leads: LeadRecord[]; services: ServiceRecord[] }) {
-  const draftedCount = leads.filter((lead) => outreachStatus(lead) === 'drafted').length
-  const approvedCount = leads.filter((lead) => outreachStatus(lead) === 'approved').length
-  const sentCount = leads.filter((lead) => outreachStatus(lead) === 'sent').length
+  const draftedCount = leads.filter((lead) => displayOutreachStatus(lead) === 'drafted').length
+  const approvedCount = leads.filter((lead) => displayOutreachStatus(lead) === 'approved').length
+  const sentCount = leads.filter((lead) => displayOutreachStatus(lead) === 'sent').length
   const responseCount = leads.filter((lead) =>
-    ['responded', 'positive', 'negative', 'offer_received'].includes(outreachStatus(lead)),
+    ['responded', 'positive', 'negative', 'offer_received'].includes(displayOutreachStatus(lead)),
   ).length
   const responseRate = sentCount > 0 ? Math.round((responseCount / sentCount) * 100) : 0
 
@@ -420,7 +444,7 @@ function OutreachTab({ leads, services }: { leads: LeadRecord[]; services: Servi
         <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
           <div>
             <h2 className="m-0 text-xl font-bold">Service Status</h2>
-            <p className="page-subtitle">Apollo outreach configuration and sending status.</p>
+            <p className="page-subtitle">Outreach configuration and sending status.</p>
           </div>
           <span className="status-pill">
             <Send className="mr-2 h-3.5 w-3.5" />
@@ -430,7 +454,7 @@ function OutreachTab({ leads, services }: { leads: LeadRecord[]; services: Servi
 
         <div className="grid gap-3 lg:grid-cols-2">
           {services.length === 0 ? (
-            <div className="empty-state">No apollo_outreach service records are configured yet.</div>
+            <div className="empty-state">No outreach service records are configured yet.</div>
           ) : (
             services.map((service) => {
               const organization = firstRelation(service.organizations)
@@ -463,13 +487,13 @@ function OutreachTab({ leads, services }: { leads: LeadRecord[]; services: Servi
 
         <div className="grid gap-4">
           {leads.length === 0 ? (
-            <div className="empty-state">No Apollo outreach emails have been ingested yet.</div>
+            <div className="empty-state">No outreach emails have been ingested yet.</div>
           ) : (
             leads.map((lead) => {
               const company = firstRelation(lead.companies)
               const contact = firstRelation(lead.contacts)
               const reasons = scoreReasons(lead)
-              const status = outreachStatus(lead)
+              const status = displayOutreachStatus(lead)
               const email = contact?.email ?? outreachEmail(lead)
 
               return (
@@ -666,7 +690,7 @@ function SignalsTab({
             <h3 className="m-0 text-lg font-bold text-white">Recent Bot Volume</h3>
             <div className="mt-4 grid grid-cols-2 gap-3">
               <Metric label="Domain Merchant" value={leads.filter((lead) => lead.source_bot === 'domain_merchant').length} />
-              <Metric label="Apollo Outreach" value={leads.filter((lead) => lead.source_bot === 'apollo_outreach').length} />
+              <Metric label="Outreach" value={leads.filter(isDomainPortfolioOutreachLead).length} />
             </div>
           </div>
         </div>
