@@ -81,6 +81,7 @@ export async function POST(req: NextRequest) {
     const reviewableStatus = input.source_bot === 'devspace_outreach' ? null : requestedStatus
     const isEmailOutreachLead = isEmailOutreachSourceBot(input.source_bot)
     const leadStatus = isEmailOutreachLead ? reviewableStatus ?? 'drafted' : 'new'
+    const outreachTargetDomain = normalizeDomain(input.metadata?.domain as string | undefined)
     const emailApprovalState =
       isEmailOutreachLead
         ? reviewableStatus === 'approved' ||
@@ -115,7 +116,8 @@ export async function POST(req: NextRequest) {
       metadata: {
         ...(body.metadata ?? {}),
         niche: serviceConfig?.niche ?? requestedNiche ?? body.metadata?.niche,
-        domain: normalizedDomain,
+        domain: isEmailOutreachLead ? outreachTargetDomain ?? normalizedDomain : normalizedDomain,
+        company_domain: normalizedDomain,
         contact_email: normalizedEmail,
         outreach_status: isEmailOutreachLead ? leadStatus : body.metadata?.outreach_status,
         email_approval_state: emailApprovalState,

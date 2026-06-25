@@ -68,7 +68,7 @@ export async function findExistingLead(input: IngestLeadInput, companyId: string
   const email = normalizeEmail(input.contact?.email) ?? normalizeEmail(outreachEmail({ raw_payload: input }))
   const metadataIdentity = outreachMetadataIdentity(input.metadata)
 
-  let query = supabaseAdmin
+  const baseQuery = () => supabaseAdmin
     .from('leads')
     .select('*')
     .eq('organization_id', input.organization_id)
@@ -77,20 +77,38 @@ export async function findExistingLead(input: IngestLeadInput, companyId: string
     .eq('lead_type', input.lead.lead_type)
 
   if (isEmailOutreachSourceBot(input.source_bot)) {
-    if (email) {
-      query = query.eq('raw_payload->contact->>email', email)
-    } else if (metadataIdentity) {
-      query = query.eq(`raw_payload->metadata->>${metadataIdentity.key}`, metadataIdentity.value)
-    } else {
-      return null
+    if (metadataIdentity) {
+      const { data } = await baseQuery()
+        .eq(`raw_payload->metadata->>${metadataIdentity.key}`, metadataIdentity.value)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      return data
     }
-  } else {
+
+    if (!email) return null
+
+    let emailQuery = baseQuery().eq('raw_payload->contact->>email', email)
     if (domain) {
-      query = query.eq('raw_payload->metadata->>domain', domain)
+      emailQuery = emailQuery.eq('raw_payload->metadata->>domain', domain)
     }
-    if (email) {
-      query = query.eq('raw_payload->contact->>email', email)
-    }
+
+    const { data } = await emailQuery
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    return data
+  }
+
+  let query = baseQuery()
+
+  if (domain) {
+    query = query.eq('raw_payload->metadata->>domain', domain)
+  }
+  if (email) {
+    query = query.eq('raw_payload->contact->>email', email)
   }
 
   const { data } = await query
