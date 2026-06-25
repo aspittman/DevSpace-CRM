@@ -1,5 +1,5 @@
 import { supabaseAdmin } from './supabase-admin'
-import { isEmailOutreachSourceBot, outreachEmail } from './outreach'
+import { isEmailOutreachSourceBot, outreachBody, outreachEmail, outreachSubject } from './outreach'
 import { normalizeDomain, normalizeEmail } from './utils'
 import type { IngestLeadInput } from './validators'
 
@@ -96,10 +96,22 @@ export async function findExistingLead(input: IngestLeadInput, companyId: string
 
     const { data } = await emailQuery
       .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
+      .limit(50)
 
-    return data
+    const incomingSubject = outreachSubject({ raw_payload: input })
+    const incomingBody = outreachBody({ raw_payload: input })
+
+    if (!incomingSubject && !incomingBody) return null
+
+    return (data ?? []).find((lead) => {
+      const existingSubject = outreachSubject(lead)
+      const existingBody = outreachBody(lead)
+
+      return (
+        (!incomingSubject || existingSubject === incomingSubject) &&
+        (!incomingBody || existingBody === incomingBody)
+      )
+    }) ?? null
   }
 
   let query = baseQuery()
@@ -126,9 +138,7 @@ function outreachMetadataIdentity(metadata: IngestLeadInput['metadata']) {
     'email_draft_id',
     'message_id',
     'thread_id',
-    'apollo_person_id',
     'apollo_email_id',
-    'apollo_sequence_id',
   ]
 
   for (const key of keys) {
