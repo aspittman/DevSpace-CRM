@@ -153,6 +153,10 @@ function shouldShowInOutreachTab(lead: LeadRecord) {
   return isOutreachReviewStatus(displayOutreachStatus(lead)) || hasOutreachDraftContent(lead)
 }
 
+function outreachServiceLimitLabel(service: ServiceRecord) {
+  return service.service_key === 'apollo_outreach' ? 'No daily cap' : `Daily limit ${service.daily_limit}`
+}
+
 async function updateOutreach(formData: FormData) {
   'use server'
 
@@ -464,7 +468,7 @@ function OutreachTab({ leads, services }: { leads: LeadRecord[]; services: Servi
                     <div>
                       <div className="font-bold text-white">{organization?.name ?? service.organization_id}</div>
                       <div className="mt-1 text-xs text-slate-400">
-                        Daily limit {service.daily_limit} · Approval {service.approval_required ? 'required' : 'optional'}
+                        {outreachServiceLimitLabel(service)} · Approval {service.approval_required ? 'required' : 'optional'}
                       </div>
                     </div>
                     <span className="status-pill">{service.is_enabled ? 'enabled' : 'disabled'}</span>

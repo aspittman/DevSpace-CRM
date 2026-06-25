@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server'
 import { supabaseAdmin } from '../../../../lib/supabase-admin'
+import { APOLLO_OUTREACH_BATCH_LIMIT, DEFAULT_DAILY_LIMIT } from '../../../../lib/service-limits'
 import { json } from '../../../../lib/utils'
 import {
   normalizeServiceNiche,
@@ -44,6 +45,8 @@ export async function POST(req: NextRequest) {
     const configJson = serviceConfigJsonFromBody(body)
     const serviceNiche = normalizeServiceNiche(niche ?? configJson.niche)
     const configuredMaxProspects = numberConfig(max_prospects ?? configJson.max_prospects)
+    const defaultDailyLimit =
+      service_key === 'apollo_outreach' ? APOLLO_OUTREACH_BATCH_LIMIT : DEFAULT_DAILY_LIMIT
 
     const servicePayload = {
       organization_id,
@@ -53,7 +56,7 @@ export async function POST(req: NextRequest) {
       is_enabled: is_enabled ?? enabled ?? true,
       email_enabled: email_enabled ?? false,
       approval_required: approval_required ?? true,
-      daily_limit: daily_limit ?? configuredMaxProspects ?? 25,
+      daily_limit: daily_limit ?? configuredMaxProspects ?? defaultDailyLimit,
       config_json: configJson,
       updated_at: new Date().toISOString(),
     }

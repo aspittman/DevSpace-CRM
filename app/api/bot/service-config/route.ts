@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
 import { json } from '../../../../lib/utils'
 import { findEnabledServiceConfig, normalizeServiceNiche } from '../../../../lib/service-config'
+import { effectiveDailyLimit } from '../../../../lib/service-limits'
 
 export async function GET(req: NextRequest) {
   try {
@@ -30,6 +31,7 @@ export async function GET(req: NextRequest) {
       return json({ success: false, error: 'Service config not found' }, { status: 404 })
     }
 
+    const dailyLimit = effectiveDailyLimit(data.service_key, data.daily_limit)
     const config = {
       ...(data.config_json ?? {}),
       service_key: data.service_key,
@@ -38,13 +40,16 @@ export async function GET(req: NextRequest) {
       enabled: data.is_enabled,
       email_enabled: data.email_enabled,
       approval_required: data.approval_required,
-      daily_limit: data.daily_limit,
+      daily_limit: dailyLimit,
       feedback_enabled: Boolean(data.config_json?.feedback_enabled),
     }
 
     return json({
       success: true,
-      service: data,
+      service: {
+        ...data,
+        daily_limit: dailyLimit,
+      },
       config,
     })
   } catch (error) {

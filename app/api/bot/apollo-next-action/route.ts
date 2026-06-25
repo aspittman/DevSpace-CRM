@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
 import { supabaseAdmin } from '../../../../lib/supabase-admin'
 import { json } from '../../../../lib/utils'
+import { APOLLO_OUTREACH_BATCH_LIMIT } from '../../../../lib/service-limits'
 import {
   configuredStatuses,
   leadActionBase,
@@ -60,7 +61,11 @@ export async function GET(req: NextRequest) {
     }
 
     const config = serviceConfig(service)
-    const limit = parsePositiveInteger(searchParams.get('limit'), Math.min(service.daily_limit ?? 25, 25), 100)
+    const limit = parsePositiveInteger(
+      searchParams.get('limit'),
+      APOLLO_OUTREACH_BATCH_LIMIT,
+      APOLLO_OUTREACH_BATCH_LIMIT,
+    )
     const minScore = Number(config.min_score ?? config.apollo_min_score ?? 60)
     const candidateStatuses = configuredStatuses(config, 'candidate_statuses', [
       'new',
@@ -143,7 +148,8 @@ export async function GET(req: NextRequest) {
         reason: items.length > 0 ? null : 'no_eligible_domain_candidates',
         approval_required: service.approval_required,
         email_enabled: service.email_enabled,
-        daily_limit: service.daily_limit,
+        daily_limit: APOLLO_OUTREACH_BATCH_LIMIT,
+        batch_limit: APOLLO_OUTREACH_BATCH_LIMIT,
         min_score: minScore,
         items,
       },
@@ -153,4 +159,3 @@ export async function GET(req: NextRequest) {
     return json({ success: false, error: 'Internal server error' }, { status: 500 })
   }
 }
-

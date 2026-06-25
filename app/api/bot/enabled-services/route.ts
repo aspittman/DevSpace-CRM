@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server'
 import { supabaseAdmin } from '../../../../lib/supabase-admin'
+import { effectiveDailyLimit } from '../../../../lib/service-limits'
 import { json } from '../../../../lib/utils'
 
 export async function GET(req: NextRequest) {
@@ -47,7 +48,10 @@ export async function GET(req: NextRequest) {
 
     return json({
       success: true,
-      services: data ?? [],
+      services: (data ?? []).map((service) => ({
+        ...service,
+        daily_limit: effectiveDailyLimit(service.service_key, service.daily_limit),
+      })),
     })
   } catch (error) {
     console.error(error)
