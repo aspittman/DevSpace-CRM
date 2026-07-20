@@ -163,25 +163,35 @@ function shouldShowInOutreachTab(lead: LeadRecord) {
   return isOutreachReviewStatus(displayOutreachStatus(lead)) || hasOutreachDraftContent(lead)
 }
 
-function dedupeOutreachLeads(leads: LeadRecord[]) {
+const completedOutreachStatuses = new Set(['approved', 'sent', 'responded', 'positive', 'negative', 'bounced', 'unsubscribed', 'offer_received'])
+
+function leadEmail(lead: LeadRecord) {
+  return normalizeEmail(firstRelation(lead.contacts)?.email ?? outreachEmail(lead))
+}
+
+function sentDate(lead: LeadRecord) {
+  return metadataString(lead, 'sent_at') ?? lead.updated_at ?? lead.created_at
+}
+
+function isEligibleResend(lead: LeadRecord, now = Date.now()) {
+  if (!completedOutreachStatuses.has(displayOutreachStatus(lead))) return false
+  if ((metadataNumber(lead, 'resend_count') ?? 0) >= 1) return false
+  const sentTime = new Date(sentDate(lead)).getTime()
+  return Number.isFinite(sentTime) && now - sentTime >= 7 * 24 * 60 * 60 * 1000
+}
+
+function dedupeOutreachByRecipient(leads: LeadRecord[]) {
   const seen = new Set<string>()
-  const completedStatuses = new Set(['approved', 'sent', 'responded', 'positive', 'negative', 'bounced', 'unsubscribed', 'offer_received'])
   const ordered = [...leads].sort((left, right) => {
-    const statusDifference = Number(completedStatuses.has(displayOutreachStatus(right))) - Number(completedStatuses.has(displayOutreachStatus(left)))
+    const statusDifference = Number(completedOutreachStatuses.has(displayOutreachStatus(right))) - Number(completedOutreachStatuses.has(displayOutreachStatus(left)))
     if (statusDifference !== 0) return statusDifference
     return new Date(right.created_at).getTime() - new Date(left.created_at).getTime()
   })
 
   return ordered.filter((lead) => {
-    const email = normalizeEmail(outreachEmail(lead))
-    const domain = normalizeDomain(outreachDomain(lead))
-    const subject = outreachSubject(lead).toLowerCase()
-    const body = outreachBody(lead).replace(/\s+/g, ' ').trim().toLowerCase()
-
-    // Only collapse exact copies. Different messages to the same recipient
-    // remain visible because they may be legitimate follow-ups.
-    if (!email || (!subject && !body)) return true
-    const key = [lead.organization_id ?? '', email, domain ?? '', subject, body].join('|')
+    const email = leadEmail(lead)
+    if (!email) return false
+    const key = [lead.organization_id ?? '', email].join('|')
     if (seen.has(key)) return false
     seen.add(key)
     return true
@@ -210,7 +220,7 @@ async function updateOutreach(formData: FormData) {
           ? null
           : null
 
-  if (!leadId || (!nextStatus && action !== 'save' && action !== 'approve')) return
+  if (!leadId || (!nextStatus && action !== 'save' && action !== 'approve' && action !== 'resend')) return
 
   const { data: lead, error: leadError } = await supabaseAdmin
     .from('leads')
@@ -222,13 +232,21 @@ async function updateOutreach(formData: FormData) {
     redirect(`/admin/domain-portfolio?tab=outreach&error=${encodeURIComponent(leadError.message)}`)
   }
 
-  if (action === 'approve') {
+  if (action === 'approve' || action === 'resend') {
     const contact = firstRelation(lead.contacts as { email: string | null }[] | { email: string | null } | null)
     const company = firstRelation(lead.companies as { name: string; domain: string | null }[] | { name: string; domain: string | null } | null)
     const toEmail = normalizeEmail(contact?.email ?? outreachEmail(lead))
 
     if (!toEmail || !subject || !body) {
       redirect('/admin/domain-portfolio?tab=outreach&error=Recipient%20email%2C%20subject%2C%20and%20email%20body%20are%20required%20before%20sending.')
+    }
+
+    const resend = action === 'resend'
+    if (resend && !isEligibleResend(lead as LeadRecord)) {
+      redirect('/admin/domain-portfolio?tab=outreach&error=This%20email%20is%20not%20eligible%20for%20a%20resend.')
+    }
+    if (!resend && completedOutreachStatuses.has(displayOutreachStatus(lead as LeadRecord))) {
+      redirect('/admin/domain-portfolio?tab=outreach&error=This%20recipient%20has%20already%20been%20contacted.')
     }
 
     const sendingPayload = mergeLeadMetadata(lead, {
@@ -242,7 +260,6 @@ async function updateOutreach(formData: FormData) {
       .update({ status: 'sending', raw_payload: sendingPayload, updated_at: new Date().toISOString() })
       .eq('id', leadId)
       .eq('status', lead.status)
-      .neq('status', 'sent')
       .select('id')
       .maybeSingle()
 
@@ -269,6 +286,8 @@ async function updateOutreach(formData: FormData) {
     // SMTP has accepted the message at this point. Never return it to the draft
     // queue after this boundary, because a retry could send a duplicate.
     const sentAt = new Date().toISOString()
+    const previousSentAt = metadataString(lead as LeadRecord, 'sent_at')
+    const previousResendCount = metadataNumber(lead as LeadRecord, 'resend_count') ?? 0
     const sentPayload = mergeLeadMetadata({ raw_payload: sendingPayload }, {
         outreach_status: 'sent',
         sent_at: sentAt,
@@ -278,6 +297,8 @@ async function updateOutreach(formData: FormData) {
         to_email: toEmail,
         sent_subject: subject,
         outreach_source: lead.source_bot === 'apollo_outreach' ? 'Apollo Outreach' : 'manual',
+        first_sent_at: metadataString(lead as LeadRecord, 'first_sent_at') ?? previousSentAt ?? sentAt,
+        resend_count: resend ? previousResendCount + 1 : previousResendCount,
     })
 
     const { error: sentError } = await supabaseAdmin.from('leads').update({
@@ -319,7 +340,8 @@ async function updateOutreach(formData: FormData) {
 
     await logActivity(leadId, 'outreach_sent', {
         to_email: toEmail,
-        subject,
+      subject,
+        resend,
         sent_at: sentAt,
         message_id: delivery.messageId,
         provider: delivery.provider,
@@ -442,22 +464,23 @@ export default async function DomainPortfolioPage({
   const services = (servicesResult.data ?? []) as unknown as ServiceRecord[]
   const rows = buildDomainPerformance(leads as any[], sales as any[])
   const domainMerchantLeads = leads.filter((lead) => lead.source_bot === 'domain_merchant')
-  const outreachLeads = dedupeOutreachLeads(
-    leads
-      .filter(isDomainPortfolioOutreachLead)
-      .filter(shouldShowInOutreachTab),
+  const outreachLeads = leads
+    .filter(isDomainPortfolioOutreachLead)
+    .filter(shouldShowInOutreachTab)
+  const sentLeads = dedupeOutreachByRecipient(
+    outreachLeads.filter((lead) => completedOutreachStatuses.has(displayOutreachStatus(lead))),
   )
-  const reviewLeads = outreachLeads.filter((lead) =>
-    !['approved', 'sent', 'responded', 'positive', 'negative', 'bounced', 'unsubscribed', 'offer_received']
-      .includes(displayOutreachStatus(lead)),
+  const contactedRecipients = new Set(sentLeads.map(leadEmail).filter(Boolean))
+  const newDrafts = dedupeOutreachByRecipient(
+    outreachLeads.filter((lead) => {
+      const email = leadEmail(lead)
+      return Boolean(email) && !completedOutreachStatuses.has(displayOutreachStatus(lead)) && !contactedRecipients.has(email)
+    }),
   )
-  const sentLeads = outreachLeads.filter((lead) =>
-    ['approved', 'sent', 'responded', 'positive', 'negative', 'bounced', 'unsubscribed', 'offer_received']
-      .includes(displayOutreachStatus(lead)),
-  )
+  const reviewLeads = [...newDrafts, ...sentLeads.filter((lead) => isEligibleResend(lead))]
   const afternicSales = sales.filter((sale) => sale.lead_source === 'afternic_sync' || sale.domain_name)
-  const sentCount = outreachLeads.filter((lead) => displayOutreachStatus(lead) === 'sent').length
-  const responseCount = outreachLeads.filter((lead) =>
+  const sentCount = sentLeads.length
+  const responseCount = sentLeads.filter((lead) =>
     ['responded', 'positive', 'negative', 'offer_received'].includes(displayOutreachStatus(lead)),
   ).length
   const totalProfit = rows.reduce((sum, row) => sum + Number(row.gross_profit ?? 0), 0)
@@ -686,7 +709,8 @@ function OutreachTab({ leads, services }: { leads: LeadRecord[]; services: Servi
               const company = firstRelation(lead.companies)
               const contact = firstRelation(lead.contacts)
               const reasons = scoreReasons(lead)
-              const status = displayOutreachStatus(lead)
+              const resend = isEligibleResend(lead)
+              const status = resend ? 'resend' : displayOutreachStatus(lead)
               const email = contact?.email ?? outreachEmail(lead)
 
               return (
@@ -747,14 +771,16 @@ function OutreachTab({ leads, services }: { leads: LeadRecord[]; services: Servi
                         <button name="action" value="save" className="button" type="submit">
                           Save
                         </button>
-                        <button name="action" value="approve" className="button" type="submit">
+                        <button name="action" value={resend ? 'resend' : 'approve'} className="button" type="submit">
                           <Check className="mr-2 inline h-4 w-4" />
-                          Approve &amp; Send
+                          {resend ? 'Approve & Resend' : 'Approve & Send'}
                         </button>
-                        <button name="action" value="reject" className="button border-red-300/40 bg-red-950/40 text-red-100" type="submit">
-                          <X className="mr-2 inline h-4 w-4" />
-                          Reject
-                        </button>
+                        {!resend ? (
+                          <button name="action" value="reject" className="button border-red-300/40 bg-red-950/40 text-red-100" type="submit">
+                            <X className="mr-2 inline h-4 w-4" />
+                            Reject
+                          </button>
+                        ) : null}
                       </div>
                     </form>
                   </div>
