@@ -1,5 +1,6 @@
 import { Check, Send, Trash2, X } from 'lucide-react'
 import { revalidatePath } from 'next/cache'
+import { redirect } from 'next/navigation'
 import { requireDomainPortfolioOwner } from '../../../lib/auth'
 import { logActivity } from '../../../lib/activity'
 import { buildDomainPerformance } from '../../../lib/domain-performance'
@@ -162,6 +163,31 @@ function shouldShowInOutreachTab(lead: LeadRecord) {
   return isOutreachReviewStatus(displayOutreachStatus(lead)) || hasOutreachDraftContent(lead)
 }
 
+function dedupeOutreachLeads(leads: LeadRecord[]) {
+  const seen = new Set<string>()
+  const completedStatuses = new Set(['approved', 'sent', 'responded', 'positive', 'negative', 'bounced', 'unsubscribed', 'offer_received'])
+  const ordered = [...leads].sort((left, right) => {
+    const statusDifference = Number(completedStatuses.has(displayOutreachStatus(right))) - Number(completedStatuses.has(displayOutreachStatus(left)))
+    if (statusDifference !== 0) return statusDifference
+    return new Date(right.created_at).getTime() - new Date(left.created_at).getTime()
+  })
+
+  return ordered.filter((lead) => {
+    const email = normalizeEmail(outreachEmail(lead))
+    const domain = normalizeDomain(outreachDomain(lead))
+    const subject = outreachSubject(lead).toLowerCase()
+    const body = outreachBody(lead).replace(/\s+/g, ' ').trim().toLowerCase()
+
+    // Only collapse exact copies. Different messages to the same recipient
+    // remain visible because they may be legitimate follow-ups.
+    if (!email || (!subject && !body)) return true
+    const key = [lead.organization_id ?? '', email, domain ?? '', subject, body].join('|')
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+}
+
 function outreachServiceLimitLabel(service: ServiceRecord) {
   return service.service_key === 'apollo_outreach' ? 'No daily cap' : `Daily limit ${service.daily_limit}`
 }
@@ -192,7 +218,9 @@ async function updateOutreach(formData: FormData) {
     .eq('id', leadId)
     .single()
 
-  if (leadError) throw leadError
+  if (leadError) {
+    redirect(`/admin/domain-portfolio?tab=outreach&error=${encodeURIComponent(leadError.message)}`)
+  }
 
   if (action === 'approve') {
     const contact = firstRelation(lead.contacts as { email: string | null }[] | { email: string | null } | null)
@@ -200,7 +228,7 @@ async function updateOutreach(formData: FormData) {
     const toEmail = normalizeEmail(contact?.email ?? outreachEmail(lead))
 
     if (!toEmail || !subject || !body) {
-      throw new Error('Recipient email, subject, and email body are required before sending.')
+      redirect('/admin/domain-portfolio?tab=outreach&error=Recipient%20email%2C%20subject%2C%20and%20email%20body%20are%20required%20before%20sending.')
     }
 
     const sendingPayload = mergeLeadMetadata(lead, {
@@ -218,8 +246,12 @@ async function updateOutreach(formData: FormData) {
       .select('id')
       .maybeSingle()
 
-    if (claimError) throw claimError
-    if (!claimed) throw new Error('This email is already being sent or has already been sent.')
+    if (claimError) {
+      redirect(`/admin/domain-portfolio?tab=outreach&error=${encodeURIComponent(claimError.message)}`)
+    }
+    if (!claimed) {
+      redirect('/admin/domain-portfolio?tab=outreach&error=This%20email%20is%20already%20being%20sent%20or%20has%20already%20been%20sent.')
+    }
 
     let delivery
     try {
@@ -230,7 +262,8 @@ async function updateOutreach(formData: FormData) {
         raw_payload: mergeLeadMetadata({ raw_payload: sendingPayload }, { outreach_status: lead.status }),
         updated_at: new Date().toISOString(),
       }).eq('id', leadId).eq('status', 'sending')
-      throw error
+      const message = error instanceof Error ? error.message : 'The email provider rejected the send request.'
+      redirect(`/admin/domain-portfolio?tab=outreach&error=${encodeURIComponent(message)}`)
     }
 
     // SMTP has accepted the message at this point. Never return it to the draft
@@ -253,9 +286,13 @@ async function updateOutreach(formData: FormData) {
         raw_payload: sentPayload,
         updated_at: sentAt,
     }).eq('id', leadId).eq('status', 'sending')
-    if (sentError) throw sentError
+    if (sentError) {
+      // SMTP has already accepted this message. Keep the record claimed so a
+      // retry cannot send a duplicate, and surface the persistence problem.
+      redirect(`/admin/domain-portfolio?tab=outreach&error=${encodeURIComponent(`Email accepted by SMTP, but the sent record could not be saved: ${sentError.message}`)}`)
+    }
 
-    await supabaseAdmin.from('outreach_suppressions').upsert({
+    const suppressionPayload = {
         organization_id: lead.organization_id,
         email: toEmail,
         company_domain: normalizeDomain(company?.domain ?? outreachDomain(lead)),
@@ -264,7 +301,21 @@ async function updateOutreach(formData: FormData) {
         source: delivery.provider,
         last_contacted_at: sentAt,
         updated_at: sentAt,
-    }, { onConflict: 'organization_id,email' })
+    }
+    const { data: existingSuppression } = await supabaseAdmin
+      .from('outreach_suppressions')
+      .select('id')
+      .eq('organization_id', lead.organization_id)
+      .eq('email', toEmail)
+      .maybeSingle()
+
+    if (existingSuppression) {
+      await supabaseAdmin.from('outreach_suppressions')
+        .update(suppressionPayload)
+        .eq('id', existingSuppression.id)
+    } else {
+      await supabaseAdmin.from('outreach_suppressions').insert(suppressionPayload)
+    }
 
     await logActivity(leadId, 'outreach_sent', {
         to_email: toEmail,
@@ -276,7 +327,7 @@ async function updateOutreach(formData: FormData) {
     })
 
     revalidatePath('/admin/domain-portfolio')
-    return
+    redirect('/admin/domain-portfolio?tab=sent&notice=Email%20sent%20successfully.')
   }
 
   const metadata: Record<string, unknown> = {}
@@ -334,7 +385,7 @@ async function deleteSentOutreach(formData: FormData) {
 export default async function DomainPortfolioPage({
   searchParams,
 }: {
-  searchParams?: Promise<{ tab?: string }>
+  searchParams?: Promise<{ tab?: string; error?: string; notice?: string }>
 }) {
   await requireDomainPortfolioOwner()
 
@@ -391,9 +442,11 @@ export default async function DomainPortfolioPage({
   const services = (servicesResult.data ?? []) as unknown as ServiceRecord[]
   const rows = buildDomainPerformance(leads as any[], sales as any[])
   const domainMerchantLeads = leads.filter((lead) => lead.source_bot === 'domain_merchant')
-  const outreachLeads = leads
-    .filter(isDomainPortfolioOutreachLead)
-    .filter(shouldShowInOutreachTab)
+  const outreachLeads = dedupeOutreachLeads(
+    leads
+      .filter(isDomainPortfolioOutreachLead)
+      .filter(shouldShowInOutreachTab),
+  )
   const reviewLeads = outreachLeads.filter((lead) =>
     !['approved', 'sent', 'responded', 'positive', 'negative', 'bounced', 'unsubscribed', 'offer_received']
       .includes(displayOutreachStatus(lead)),
@@ -427,6 +480,17 @@ export default async function DomainPortfolioPage({
           <p className="mt-2 text-sm">
             {leadsResult.error?.message ?? salesResult.error?.message ?? servicesResult.error?.message}
           </p>
+        </div>
+      ) : null}
+
+      {params?.error ? (
+        <div className="panel border-red-300/40 bg-red-950/40 text-red-100" role="alert">
+          <strong>Email was not sent.</strong> {params.error}
+        </div>
+      ) : null}
+      {params?.notice ? (
+        <div className="panel border-emerald-300/40 bg-emerald-950/40 text-emerald-100" role="status">
+          {params.notice}
         </div>
       ) : null}
 

@@ -31,6 +31,7 @@ const domainPortfolioLinks: SidebarLink[] = [
   { href: '/admin/domain-portfolio?tab=outreach', label: 'Outreach', tab: 'outreach' },
   { href: '/admin/domain-portfolio?tab=sales', label: 'Sales / Afternic', tab: 'sales' },
   { href: '/admin/domain-portfolio?tab=signals', label: 'Signals', tab: 'signals' },
+  { href: '/admin/domain-portfolio?tab=sent', label: 'Sent', tab: 'sent' },
 ]
 
 function isActiveLink(link: SidebarLink, pathname: string, activeTab: string) {
