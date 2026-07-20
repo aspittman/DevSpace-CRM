@@ -28,7 +28,9 @@ export async function GET(req: NextRequest) {
       : requestedSourceBot === 'all'
         ? [...emailOutreachSourceBots]
         : ['apollo_outreach']
-    const limit = Math.min(Number(searchParams.get('limit') ?? 50) || 50, 100)
+    // Sending programs intentionally receive one message per poll. They must report
+    // it through outreach-sent before the next recipient becomes eligible.
+    const limit = 1
 
     if (!organizationId) {
       return json({ success: false, error: 'organization_id is required' }, { status: 400 })
@@ -55,7 +57,9 @@ export async function GET(req: NextRequest) {
       .in('source_bot', sourceBots)
       .in('status', ['approved'])
       .order('updated_at', { ascending: true })
-      .limit(limit)
+      // Fetch enough candidates to skip incomplete or suppressed rows, then
+      // return only the first eligible message below.
+      .limit(100)
 
     if (error) throw error
 
@@ -77,6 +81,7 @@ export async function GET(req: NextRequest) {
         .filter(Boolean),
     )
 
+    const seenRecipients = new Set<string>()
     const records = (leads ?? [])
       .filter((lead: any) => outreachStatus(lead) === 'approved')
       .map((lead: any) => {
@@ -97,6 +102,7 @@ export async function GET(req: NextRequest) {
           company_name: company?.name ?? null,
           subject: outreachSubject(lead),
           body: outreachBody(lead),
+          from_email: process.env.OUTREACH_FROM_EMAIL ?? 'domains@devspacetechnologies.com',
           domain,
           score: lead.score,
           suppressed:
@@ -106,6 +112,13 @@ export async function GET(req: NextRequest) {
         }
       })
       .filter((record) => record.to_email && record.subject && record.body && !record.suppressed)
+      .filter((record) => {
+        const recipient = record.to_email as string
+        if (seenRecipients.has(recipient)) return false
+        seenRecipients.add(recipient)
+        return true
+      })
+      .slice(0, limit)
 
     return json({
       success: true,

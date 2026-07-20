@@ -1,9 +1,11 @@
-import { Check, Send, X } from 'lucide-react'
+import { Check, Send, Trash2, X } from 'lucide-react'
 import { revalidatePath } from 'next/cache'
 import { requireDomainPortfolioOwner } from '../../../lib/auth'
 import { logActivity } from '../../../lib/activity'
 import { buildDomainPerformance } from '../../../lib/domain-performance'
 import { domainFromLead, metadataValue } from '../../../lib/domain-intelligence'
+import { sendOutreachEmail } from '../../../lib/smtp'
+import { normalizeDomain, normalizeEmail } from '../../../lib/utils'
 import {
   mergeLeadMetadata,
   outreachBody,
@@ -16,7 +18,7 @@ import {
 } from '../../../lib/outreach'
 import { supabaseAdmin } from '../../../lib/supabase-admin'
 
-type TabKey = 'portfolio' | 'recommendations' | 'outreach' | 'sales' | 'signals'
+type TabKey = 'portfolio' | 'recommendations' | 'outreach' | 'sales' | 'signals' | 'sent'
 
 type LeadRecord = {
   id: string
@@ -83,6 +85,7 @@ const tabs: { key: TabKey; label: string }[] = [
   { key: 'outreach', label: 'Outreach' },
   { key: 'sales', label: 'Sales / Afternic' },
   { key: 'signals', label: 'Signals' },
+  { key: 'sent', label: 'Sent' },
 ]
 
 const domainPortfolioSourceBots = ['domain_merchant', 'apollo_outreach', 'afternic_sync', 'domain'] as const
@@ -129,6 +132,12 @@ function metadataNumber(lead: LeadRecord, key: string) {
   return Number.isFinite(numericValue) ? numericValue : null
 }
 
+function outreachContactName(lead: LeadRecord) {
+  const payloadContact = lead.raw_payload?.contact
+  const payloadName = [payloadContact?.first_name, payloadContact?.last_name].filter(Boolean).join(' ').trim()
+  return payloadContact?.name || payloadName || null
+}
+
 function isOutreachReviewStatus(value: string | null | undefined) {
   return outreachStatuses.includes(String(value ?? '').toLowerCase() as (typeof outreachStatuses)[number])
 }
@@ -169,23 +178,106 @@ async function updateOutreach(formData: FormData) {
   const note = String(formData.get('note') ?? '').trim()
 
   const nextStatus =
-    action === 'approve'
-      ? 'approved'
-      : action === 'reject'
+    action === 'reject'
         ? 'rejected'
         : action === 'save'
           ? null
           : null
 
-  if (!leadId || (!nextStatus && action !== 'save')) return
+  if (!leadId || (!nextStatus && action !== 'save' && action !== 'approve')) return
 
   const { data: lead, error: leadError } = await supabaseAdmin
     .from('leads')
-    .select('id, raw_payload, status')
+    .select('id, organization_id, source_bot, raw_payload, status, contacts (email), companies (name, domain)')
     .eq('id', leadId)
     .single()
 
   if (leadError) throw leadError
+
+  if (action === 'approve') {
+    const contact = firstRelation(lead.contacts as { email: string | null }[] | { email: string | null } | null)
+    const company = firstRelation(lead.companies as { name: string; domain: string | null }[] | { name: string; domain: string | null } | null)
+    const toEmail = normalizeEmail(contact?.email ?? outreachEmail(lead))
+
+    if (!toEmail || !subject || !body) {
+      throw new Error('Recipient email, subject, and email body are required before sending.')
+    }
+
+    const sendingPayload = mergeLeadMetadata(lead, {
+      crm_email_subject: subject,
+      crm_email_body: body,
+      outreach_status: 'sending',
+      crm_review_note: note || null,
+    })
+    const { data: claimed, error: claimError } = await supabaseAdmin
+      .from('leads')
+      .update({ status: 'sending', raw_payload: sendingPayload, updated_at: new Date().toISOString() })
+      .eq('id', leadId)
+      .eq('status', lead.status)
+      .neq('status', 'sent')
+      .select('id')
+      .maybeSingle()
+
+    if (claimError) throw claimError
+    if (!claimed) throw new Error('This email is already being sent or has already been sent.')
+
+    let delivery
+    try {
+      delivery = await sendOutreachEmail({ to: toEmail, subject, body })
+    } catch (error) {
+      await supabaseAdmin.from('leads').update({
+        status: lead.status,
+        raw_payload: mergeLeadMetadata({ raw_payload: sendingPayload }, { outreach_status: lead.status }),
+        updated_at: new Date().toISOString(),
+      }).eq('id', leadId).eq('status', 'sending')
+      throw error
+    }
+
+    // SMTP has accepted the message at this point. Never return it to the draft
+    // queue after this boundary, because a retry could send a duplicate.
+    const sentAt = new Date().toISOString()
+    const sentPayload = mergeLeadMetadata({ raw_payload: sendingPayload }, {
+        outreach_status: 'sent',
+        sent_at: sentAt,
+        message_id: delivery.messageId,
+        provider: delivery.provider,
+        sending_account: delivery.fromEmail,
+        to_email: toEmail,
+        sent_subject: subject,
+        outreach_source: lead.source_bot === 'apollo_outreach' ? 'Apollo Outreach' : 'manual',
+    })
+
+    const { error: sentError } = await supabaseAdmin.from('leads').update({
+        status: 'sent',
+        email_approval_state: 'sent',
+        raw_payload: sentPayload,
+        updated_at: sentAt,
+    }).eq('id', leadId).eq('status', 'sending')
+    if (sentError) throw sentError
+
+    await supabaseAdmin.from('outreach_suppressions').upsert({
+        organization_id: lead.organization_id,
+        email: toEmail,
+        company_domain: normalizeDomain(company?.domain ?? outreachDomain(lead)),
+        company_name: company?.name ?? null,
+        reason: 'already_contacted',
+        source: delivery.provider,
+        last_contacted_at: sentAt,
+        updated_at: sentAt,
+    }, { onConflict: 'organization_id,email' })
+
+    await logActivity(leadId, 'outreach_sent', {
+        to_email: toEmail,
+        subject,
+        sent_at: sentAt,
+        message_id: delivery.messageId,
+        provider: delivery.provider,
+        sending_account: delivery.fromEmail,
+    })
+
+    revalidatePath('/admin/domain-portfolio')
+    return
+  }
 
   const metadata: Record<string, unknown> = {}
   if (subject) metadata.crm_email_subject = subject
@@ -211,6 +303,30 @@ async function updateOutreach(formData: FormData) {
     status: nextStatus,
     note: note || null,
   })
+
+  revalidatePath('/admin/domain-portfolio')
+}
+
+async function deleteSentOutreach(formData: FormData) {
+  'use server'
+
+  await requireDomainPortfolioOwner()
+
+  const leadId = String(formData.get('lead_id') ?? '')
+  if (!leadId) return
+
+  const { data: lead, error: leadError } = await supabaseAdmin
+    .from('leads')
+    .select('id, status, email_approval_state, raw_payload')
+    .eq('id', leadId)
+    .single()
+
+  if (leadError) throw leadError
+  if (displayOutreachStatus(lead as LeadRecord) !== 'sent') return
+
+  // The outreach suppression created at send time is deliberately retained.
+  const { error } = await supabaseAdmin.from('leads').delete().eq('id', leadId)
+  if (error) throw error
 
   revalidatePath('/admin/domain-portfolio')
 }
@@ -278,6 +394,14 @@ export default async function DomainPortfolioPage({
   const outreachLeads = leads
     .filter(isDomainPortfolioOutreachLead)
     .filter(shouldShowInOutreachTab)
+  const reviewLeads = outreachLeads.filter((lead) =>
+    !['approved', 'sent', 'responded', 'positive', 'negative', 'bounced', 'unsubscribed', 'offer_received']
+      .includes(displayOutreachStatus(lead)),
+  )
+  const sentLeads = outreachLeads.filter((lead) =>
+    ['approved', 'sent', 'responded', 'positive', 'negative', 'bounced', 'unsubscribed', 'offer_received']
+      .includes(displayOutreachStatus(lead)),
+  )
   const afternicSales = sales.filter((sale) => sale.lead_source === 'afternic_sync' || sale.domain_name)
   const sentCount = outreachLeads.filter((lead) => displayOutreachStatus(lead) === 'sent').length
   const responseCount = outreachLeads.filter((lead) =>
@@ -324,10 +448,11 @@ export default async function DomainPortfolioPage({
       {tab === 'portfolio' ? <PortfolioTab rows={rows} /> : null}
       {tab === 'recommendations' ? <RecommendationsTab leads={domainMerchantLeads} /> : null}
       {tab === 'outreach' ? (
-        <OutreachTab leads={outreachLeads} services={services.filter((service) => service.service_key === 'apollo_outreach')} />
+        <OutreachTab leads={reviewLeads} services={services.filter((service) => service.service_key === 'apollo_outreach')} />
       ) : null}
       {tab === 'sales' ? <SalesTab sales={afternicSales} /> : null}
       {tab === 'signals' ? <SignalsTab rows={rows} leads={leads} services={services} /> : null}
+      {tab === 'sent' ? <SentTab leads={sentLeads} /> : null}
     </div>
   )
 }
@@ -560,7 +685,7 @@ function OutreachTab({ leads, services }: { leads: LeadRecord[]; services: Servi
                         </button>
                         <button name="action" value="approve" className="button" type="submit">
                           <Check className="mr-2 inline h-4 w-4" />
-                          Approve
+                          Approve &amp; Send
                         </button>
                         <button name="action" value="reject" className="button border-red-300/40 bg-red-950/40 text-red-100" type="submit">
                           <X className="mr-2 inline h-4 w-4" />
@@ -576,6 +701,61 @@ function OutreachTab({ leads, services }: { leads: LeadRecord[]; services: Servi
         </div>
       </section>
     </>
+  )
+}
+
+function SentTab({ leads }: { leads: LeadRecord[] }) {
+  return (
+    <section className="panel">
+      <div className="mb-5">
+        <h2 className="m-0 text-xl font-bold">Sent Outreach</h2>
+        <p className="page-subtitle">Sent messages and their latest delivery or response status.</p>
+      </div>
+      {leads.length === 0 ? <div className="empty-state">No sent outreach yet.</div> : (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[1100px] text-left text-sm">
+            <thead className="border-b border-white/10 text-xs uppercase text-slate-400">
+              <tr>{['Sent date', 'Domain', 'Company', 'Contact', 'Email address', 'Subject', 'Status', 'Source', 'Provider', 'Action'].map((label) => <th key={label} className="p-3">{label}</th>)}</tr>
+            </thead>
+            <tbody>
+              {leads.map((lead) => {
+                const company = firstRelation(lead.companies)
+                const contact = firstRelation(lead.contacts)
+                const sentAt = metadataString(lead, 'sent_at') ?? lead.updated_at ?? lead.created_at
+                const status = displayOutreachStatus(lead) === 'approved' ? 'sent' : displayOutreachStatus(lead)
+                return (
+                  <tr key={lead.id} className="border-b border-white/10 align-top text-slate-200">
+                    <td className="p-3 whitespace-nowrap">{formatDate(sentAt)}</td>
+                    <td className="p-3">{outreachDomain(lead) || 'n/a'}</td>
+                    <td className="p-3">{company?.name ?? 'n/a'}</td>
+                    <td className="p-3">{contact?.name ?? outreachContactName(lead) ?? 'n/a'}</td>
+                    <td className="p-3">{contact?.email ?? outreachEmail(lead) ?? 'n/a'}</td>
+                    <td className="p-3">{outreachSubject(lead) || 'n/a'}</td>
+                    <td className="p-3"><span className="status-pill">{status}</span></td>
+                    <td className="p-3">{metadataString(lead, 'outreach_source') ?? (lead.source_bot === 'apollo_outreach' ? 'Apollo Outreach' : 'manual')}</td>
+                    <td className="p-3">{metadataString(lead, 'provider') ?? (displayOutreachStatus(lead) === 'approved' ? 'Manual / historical' : 'n/a')}</td>
+                    <td className="p-3">
+                      <details>
+                        <summary className="cursor-pointer font-semibold text-cyan-300">View full record</summary>
+                        <div className="mt-3 w-80 space-y-3 rounded border border-white/10 bg-slate-950/70 p-3">
+                          <div><strong>Subject:</strong> {outreachSubject(lead)}</div>
+                          <div className="whitespace-pre-wrap"><strong>Body:</strong>{'\n'}{outreachBody(lead)}</div>
+                          <div><strong>Message ID:</strong> {metadataString(lead, 'message_id') ?? 'n/a'}</div>
+                          <form action={deleteSentOutreach}>
+                            <input type="hidden" name="lead_id" value={lead.id} />
+                            <button className="button border-red-300/40 bg-red-950/40 text-red-100" type="submit"><Trash2 className="mr-2 inline h-4 w-4" />Delete from list</button>
+                          </form>
+                        </div>
+                      </details>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
   )
 }
 

@@ -27,6 +27,8 @@ export const ingestLeadSchema = z.object({
   contact: z
     .object({
       name: z.string().optional().nullable(),
+      first_name: z.string().optional().nullable(),
+      last_name: z.string().optional().nullable(),
       email: z.string().email().optional().nullable(),
       phone: z.string().optional().nullable(),
       title: z.string().optional().nullable(),

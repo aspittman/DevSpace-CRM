@@ -44,6 +44,7 @@ export async function POST(req: NextRequest) {
 
     const normalizedDomain = normalizeDomain(input.company.domain || input.company.website)
     const normalizedEmail = normalizeEmail(input.contact?.email) ?? normalizeEmail(outreachEmail(body))
+    const contactName = input.contact?.name ?? ([input.contact?.first_name, input.contact?.last_name].filter(Boolean).join(' ') || null)
     const requestedNiche = normalizeServiceNiche(input.metadata?.niche)
     const serviceConfig = await findEnabledServiceConfig(
       organizationId,
@@ -78,7 +79,8 @@ export async function POST(req: NextRequest) {
 
     const metadataStatus = input.metadata?.outreach_status
     const requestedStatus = isOutreachStatus(metadataStatus) ? metadataStatus : null
-    const reviewableStatus = input.source_bot === 'devspace_outreach' ? null : requestedStatus
+    const reviewableStatus =
+      input.source_bot === 'devspace_outreach' ? null : requestedStatus
     const isEmailOutreachLead = isEmailOutreachSourceBot(input.source_bot)
     const leadStatus = isEmailOutreachLead ? reviewableStatus ?? 'drafted' : 'new'
     const outreachTargetDomain = normalizeDomain(input.metadata?.domain as string | undefined)
@@ -158,7 +160,7 @@ export async function POST(req: NextRequest) {
           .insert({
             organization_id: organizationId,
             company_id: company.id,
-            name: input.contact?.name ?? null,
+            name: contactName,
             email: normalizedEmail,
             phone: input.contact?.phone ?? null,
             title: input.contact?.title ?? null,
