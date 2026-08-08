@@ -7,6 +7,46 @@ function getMetadataValue(payload: any, key: string) {
   return payload?.metadata?.[key] ?? null
 }
 
+function asRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null
+  return value as Record<string, unknown>
+}
+
+function extractDomainMarketData(value: unknown) {
+  const record = asRecord(value)
+  if (!record) return null
+
+  return (
+    asRecord(record.domain_market_data) ??
+    asRecord(asRecord(record.metadata)?.domain_market_data) ??
+    asRecord(asRecord(record.raw_payload)?.metadata)?.domain_market_data ??
+    null
+  )
+}
+
+function marketDataByDomain(leads: any[]) {
+  const indexed = new Map<string, { data: Record<string, unknown>; createdAt: number }>()
+
+  for (const lead of leads) {
+    const domain = normalizeDomain(
+      lead.raw_payload?.metadata?.domain ??
+        lead.raw_payload?.company?.domain ??
+        lead.raw_payload?.company?.website,
+    )
+    const data = asRecord(lead.raw_payload?.metadata?.domain_market_data)
+
+    if (!domain || !data) continue
+
+    const createdAt = new Date(lead.created_at ?? 0).getTime()
+    const existing = indexed.get(domain)
+    if (!existing || createdAt >= existing.createdAt) {
+      indexed.set(domain, { data, createdAt })
+    }
+  }
+
+  return new Map(Array.from(indexed, ([domain, value]) => [domain, value.data]))
+}
+
 export async function GET(req: NextRequest) {
   try {
     const authHeader = req.headers.get('authorization')
@@ -117,23 +157,32 @@ export async function GET(req: NextRequest) {
         return !['sold', 'rejected', 'expired'].includes(String(row.domain_lifecycle_state ?? '').toLowerCase())
       })
       .sort((a, b) => Number(b.resale_likelihood_score ?? 0) - Number(a.resale_likelihood_score ?? 0))
+    const domainMarketData = marketDataByDomain((leads ?? []) as any[])
 
     return json({
       success: true,
       organization_id: organizationId,
       niche,
-      domains: domainRows.map((row) => ({
-        domain: row.domain,
-        niche: row.niche,
-        target_price: row.target_price,
-        ask_price: row.ask_price,
-        category: row.category,
-        buyer_terms: row.buyer_terms,
-        action_terms: row.action_terms,
-        resale_likelihood_score: row.resale_likelihood_score,
-        domain_lifecycle_state: row.domain_lifecycle_state,
-        email_approval_state: row.email_approval_state,
-      })),
+      domains: domainRows.map((row) => {
+        const marketData = domainMarketData.get(row.domain) ?? null
+
+        return {
+          domain: row.domain,
+          niche: row.niche,
+          target_price: row.target_price,
+          ask_price: row.ask_price,
+          category: row.category,
+          buyer_terms: row.buyer_terms,
+          action_terms: row.action_terms,
+          resale_likelihood_score: row.resale_likelihood_score,
+          domain_lifecycle_state: row.domain_lifecycle_state,
+          email_approval_state: row.email_approval_state,
+          domain_market_data: marketData,
+          metadata: {
+            domain_market_data: marketData,
+          },
+        }
+      }),
       signals: {
         total_domain_records: totalDomains,
         sold_count: soldCount,
@@ -141,25 +190,41 @@ export async function GET(req: NextRequest) {
         average_sale_price: soldCount > 0 ? totalRevenue / soldCount : 0,
         top_keywords: topKeywords,
         configured_domains: configuredDomains
-          .map((item: any) => ({
-            domain: normalizeDomain(item.domain ?? item.domain_name ?? item.website),
-            ask_price: item.ask_price ?? item.price ?? null,
-            niche: item.niche ?? niche ?? null,
-          }))
+          .map((item: any) => {
+            const marketData = asRecord(extractDomainMarketData(item))
+
+            return {
+              domain: normalizeDomain(item.domain ?? item.domain_name ?? item.website),
+              ask_price: item.ask_price ?? item.price ?? null,
+              niche: item.niche ?? niche ?? null,
+              domain_market_data: marketData,
+              metadata: {
+                domain_market_data: marketData,
+              },
+            }
+          })
           .filter((item: any) => item.domain),
-        recent_domains: filteredLeads.slice(0, 25).map((lead: any) => ({
-          ...lead,
-          domain: normalizeDomain(
-            lead.raw_payload?.metadata?.domain ??
-              lead.raw_payload?.company?.domain ??
-              lead.raw_payload?.company?.website,
-          ),
-          ask_price:
-            lead.raw_payload?.metadata?.ask_price ??
-            lead.raw_payload?.metadata?.price ??
-            null,
-          niche: lead.raw_payload?.metadata?.niche ?? null,
-        })),
+        recent_domains: filteredLeads.slice(0, 25).map((lead: any) => {
+          const marketData = asRecord(lead.raw_payload?.metadata?.domain_market_data)
+
+          return {
+            ...lead,
+            domain: normalizeDomain(
+              lead.raw_payload?.metadata?.domain ??
+                lead.raw_payload?.company?.domain ??
+                lead.raw_payload?.company?.website,
+            ),
+            ask_price:
+              lead.raw_payload?.metadata?.ask_price ??
+              lead.raw_payload?.metadata?.price ??
+              null,
+            niche: lead.raw_payload?.metadata?.niche ?? null,
+            domain_market_data: marketData,
+            metadata: {
+              domain_market_data: marketData,
+            },
+          }
+        }),
       },
     })
   } catch (error) {
